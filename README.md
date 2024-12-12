@@ -369,6 +369,7 @@ You will need to make sure you have a `.env` file with `OPENAI_API_KEY=` set in 
 to run tests. From there, running the test suite is easy.
 
 ```shell
+$ npm install
 $ npm test
 ```
 

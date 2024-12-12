@@ -1,34 +1,9 @@
-// javascript
-//
-// This script connects to the OpenAI Realtime API to create a voice-based assistant.
-// 
-// It captures audio input from your microphone, sends it to the OpenAI API for processing,
-// and plays back the assistant's audio response through your speakers.
-// 
-// **How to Run on a Mac:**
-// 
-// 1. **Install Dependencies:**
-//    - Ensure you have Node.js and npm installed.
-//    - Run `npm init & npm install` to install all required packages.
-// 
-// 2. **Set Up Environment Variables:**
-//    - Create a `.env` file in the same directory as this script.
-//    - Add your OpenAI API key to the `.env` file:
-//      ```
-//      OPENAI_API_KEY=your_api_key_here
-//      ```
-// 
-// 3. **Run the Script:**
-//    - Execute the script with the command `node node_devenv.mjs`.
-// 
-// **Note:** Make sure your microphone and speakers are properly configured and accessible on your Mac.
-//
-
 import { RealtimeClient } from '@openai/realtime-api-beta';
 import mic from 'mic';
 import { Readable } from 'stream';
 import Speaker from 'speaker';
 import dotenv from 'dotenv';
+import os from 'os';
 
 dotenv.config();
 
