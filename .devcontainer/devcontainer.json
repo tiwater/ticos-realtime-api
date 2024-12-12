@@ -1,0 +1,7 @@
+{
+  "tasks": {
+    "test": "npm install && npm test",
+    "build": "npm install",
+    "launch": "echo \"No specific launch command found. This repository is intended to be used as a library in other projects.\""
+  }
+}
