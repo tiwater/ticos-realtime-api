@@ -139,3 +139,16 @@ function playAudio(audioData) {
 }
 
 // END MANAGE AUDIO INTERFACES
+
+// Check if all dependencies are installed
+import { exec } from 'child_process';
+
+exec('npm ls', (error, stdout, stderr) => {
+  if (error) {
+    console.error('Error checking dependencies:', error);
+    console.error('Please run "npm install" to install missing dependencies.');
+    process.exit(1);
+  } else {
+    console.log('All dependencies are installed.');
+  }
+});
