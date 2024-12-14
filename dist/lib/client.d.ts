@@ -261,11 +261,23 @@ export class RealtimeClient extends RealtimeEventHandler {
      */
     deleteItem(id: string): true;
     /**
-     * Updates session configuration
-     * If the client is not yet connected, will save details and instantiate upon connection
-     * @param {SessionResourceType} [sessionConfig]
+     * Updates session configuration based on config type
+     * @param {StardustConfigType|OpenaiConfigType} [sessionConfig]
+     * @param {'stardust'|'openai'} [configType='stardust']
      */
-    updateSession({ modalities, instructions, voice, input_audio_format, output_audio_format, input_audio_transcription, turn_detection, tools, tool_choice, temperature, max_response_output_tokens, }?: SessionResourceType): boolean;
+    updateSession(sessionConfig?: StardustConfigType | OpenaiConfigType, configType?: 'stardust' | 'openai'): boolean;
+    
+    /**
+     * Updates stardust session configuration
+     * @param {StardustConfigType} [sessionConfig]
+     */
+    updateStardustSession(sessionConfig?: StardustConfigType): boolean;
+
+    /**
+     * Updates openai session configuration
+     * @param {OpenaiConfigType} [sessionConfig]
+     */
+    updateOpenaiSession(sessionConfig?: OpenaiConfigType): boolean;
     /**
      * Sends user message content and generates a response
      * @param {Array<InputTextContentType|InputAudioContentType>} content
@@ -454,6 +466,59 @@ export type ResponseResourceType = {
     output: ItemType[];
     usage: UsageType | null;
 };
+
+export type StardustModelType = {
+    name?: string;
+    modalities?: string[];
+    instructions?: string;
+    tools?: ToolDefinitionType[];
+    tool_choice?: "auto" | "none" | "required" | {
+        type: "function";
+        name: string;
+    };
+    temperature?: number;
+    max_response_output_tokens?: number | "inf";
+};
+
+export type StardustSpeechType = {
+    voice?: "alloy"|"ash"|"ballad"|"coral"|"echo"|"sage"|"shimmer"|"verse";
+    output_audio_format?: AudioFormatType;
+};
+
+export type StardustHearingType = {
+    input_audio_format?: AudioFormatType;
+    input_audio_transcription?: AudioTranscriptionType | null;
+    turn_detection?: TurnDetectionServerVadType | null;
+};
+
+export type StardustKnowledgeType = {
+    [key: string]: any;
+};
+
+export type StardustConfigType = {
+    model?: StardustModelType;
+    speech?: StardustSpeechType;
+    hearing?: StardustHearingType;
+    knowledge?: StardustKnowledgeType;
+};
+
+export type OpenaiConfigType = {
+    modalities?: string[];
+    instructions?: string;
+    voice?: "alloy"|"ash"|"ballad"|"coral"|"echo"|"sage"|"shimmer"|"verse";
+    input_audio_format?: AudioFormatType;
+    output_audio_format?: AudioFormatType;
+    input_audio_transcription?: AudioTranscriptionType | null;
+    turn_detection?: TurnDetectionServerVadType | null;
+    tools?: ToolDefinitionType[];
+    tool_choice?: "auto" | "none" | "required" | {
+        type: "function";
+        name: string;
+    };
+    temperature?: number;
+    max_response_output_tokens?: number | "inf";
+};
+
 import { RealtimeEventHandler } from './event_handler.js';
 import { RealtimeAPI } from './api.js';
 import { RealtimeConversation } from './conversation.js';
