@@ -352,17 +352,33 @@ export type TurnDetectionServerVadType = {
     prefix_padding_ms?: number;
     silence_duration_ms?: number;
 };
+
+export type ToolParameterType = {
+    type: string;
+    description: string;
+};
+
 /**
  * Tool definitions
  */
 export type ToolDefinitionType = {
-    type?: "function";
+    type: "function";
+    id?: string;
     name: string;
     description: string;
     parameters: {
-        [key: string]: any;
+        type: "object";
+        properties: Record<string, ToolParameterType>;
     };
+    required: string[];
+    operation_mode: "client_mode" | "server_mode";
+    execution_type: "synchronous" | "asynchronous";
+    result_handling: "process_in_llm" | "process_in_client" | "ignore_result";
+    code: string;
+    language: "python" | "shell";
+    platform: "linux" | "macos" | "windows";
 };
+
 export type SessionResourceType = {
     model?: string;
     modalities?: string[];
