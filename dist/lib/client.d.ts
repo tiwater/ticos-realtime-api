@@ -468,7 +468,7 @@ export type ResponseResourceType = {
 };
 
 export type StardustModelType = {
-    provider?: 'tiwater';
+    provider?: string;
     name?: string;
     modalities?: string[];
     instructions?: string;
@@ -479,25 +479,68 @@ export type StardustModelType = {
     };
     temperature?: number;
     max_response_output_tokens?: number | "inf";
+    api_key?: string;
 };
 
 export type StardustSpeechType = {
-    voice?: "alloy" | "ash" | "ballad" | "coral" | "echo" | "sage" | "shimmer" | "verse";
-    output_audio_format?: AudioFormatType;
+    voice?: string;
+    output_audio_format?: string;
+    speed_ratio?: number;
+    volume_ratio?: number;
+    pitch_ratio?: number;
 };
 
 export type StardustHearingType = {
-    input_audio_format?: AudioFormatType;
+    input_audio_format?: string;
     input_audio_transcription?: AudioTranscriptionType | null;
     turn_detection?: TurnDetectionServerVadType | null;
 };
 
+
+export type MessageResponse = {
+    id: string;
+    type: 'message';
+    message: string; // The response content, either texts or predefined actions
+};
+
+export type FunctionResponse = {
+    id: string;
+    type: 'function';
+    function: string;
+};
+
+export type DialogueResponse = MessageResponse | FunctionResponse;
+
+/**
+ * Represents a mapping between a human's input and the robot's possible responses.
+ * When a human's question matches the prompt (using vector similarity),
+ * the robot will use one of the responses as its guided answer.
+ */
+export type Dialogue = {
+    id: string;
+    prompts: string[]; // The human's input/question that prompts this response
+    responses: DialogueResponse[]; // Array of possible response sequences. Each sequence contains one or more sentences.
+};
+
+/**
+ * A script is a collection of predefined dialogues that guide
+ * how the robot should respond to specific human inputs.
+ */
+export type Script = {
+    id: string;
+    name: string;
+    description: string;
+    priority?: number; // Higher priority scripts take precedence when multiple matches are found
+    tags: string[]; // Tags help categorize scripts by topics or scenarios
+    dialogues: Dialogue[]; // The dialogues in this script
+};
+
 export type StardustKnowledgeType = {
-    [key: string]: any;
+    scripts?: Script[];
 };
 
 export type StardustConfigType = {
-    model?: StardustModelType;
+    model: StardustModelType;
     speech?: StardustSpeechType;
     hearing?: StardustHearingType;
     knowledge?: StardustKnowledgeType;
