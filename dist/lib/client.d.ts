@@ -13,14 +13,33 @@
  * @property {number} [prefix_padding_ms]
  * @property {number} [silence_duration_ms]
  */
+
+/**
+ * Tool parameter definition
+ * @typedef {Object} ToolParameterType
+ * @property {string} type
+ * @property {string} description
+ */
+
 /**
  * Tool definitions
  * @typedef {Object} ToolDefinitionType
- * @property {"function"} [type]
+ * @property {"function"} type
+ * @property {string} [id]
  * @property {string} name
  * @property {string} description
- * @property {{[key: string]: any}} parameters
- */
+ * @property {{
+*   type: "object",
+*   properties: Record<string, ToolParameterType>
+* }} parameters
+* @property {string[]} required
+* @property {"client_mode"|"server_mode"} operation_mode
+* @property {"synchronous"|"asynchronous"} execution_type
+* @property {"process_in_llm"|"process_in_client"|"ignore_result"} result_handling
+* @property {string} code
+* @property {"python"|"shell"} language
+* @property {"linux"|"macos"|"windows"} platform
+*/
 /**
  * @typedef {Object} SessionResourceType
  * @property {string} [model]
