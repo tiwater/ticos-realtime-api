@@ -266,7 +266,7 @@ export class RealtimeClient extends RealtimeEventHandler {
      * @param {'stardust'|'openai'} [configType='stardust']
      */
     updateSession(sessionConfig?: StardustConfigType | OpenaiConfigType, configType?: 'stardust' | 'openai'): boolean;
-    
+
     /**
      * Updates stardust session configuration
      * @param {StardustConfigType} [sessionConfig]
@@ -348,7 +348,7 @@ export type SessionResourceType = {
     model?: string;
     modalities?: string[];
     instructions?: string;
-    voice?: "alloy"|"ash"|"ballad"|"coral"|"echo"|"sage"|"shimmer"|"verse";
+    voice?: "alloy" | "ash" | "ballad" | "coral" | "echo" | "sage" | "shimmer" | "verse";
 
     input_audio_format?: AudioFormatType;
     output_audio_format?: AudioFormatType;
@@ -468,6 +468,7 @@ export type ResponseResourceType = {
 };
 
 export type StardustModelType = {
+    provider?: 'tiwater';
     name?: string;
     modalities?: string[];
     instructions?: string;
@@ -481,7 +482,7 @@ export type StardustModelType = {
 };
 
 export type StardustSpeechType = {
-    voice?: "alloy"|"ash"|"ballad"|"coral"|"echo"|"sage"|"shimmer"|"verse";
+    voice?: "alloy" | "ash" | "ballad" | "coral" | "echo" | "sage" | "shimmer" | "verse";
     output_audio_format?: AudioFormatType;
 };
 
@@ -505,7 +506,7 @@ export type StardustConfigType = {
 export type OpenaiConfigType = {
     modalities?: string[];
     instructions?: string;
-    voice?: "alloy"|"ash"|"ballad"|"coral"|"echo"|"sage"|"shimmer"|"verse";
+    voice?: "alloy" | "ash" | "ballad" | "coral" | "echo" | "sage" | "shimmer" | "verse";
     input_audio_format?: AudioFormatType;
     output_audio_format?: AudioFormatType;
     input_audio_transcription?: AudioTranscriptionType | null;
