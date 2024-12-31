@@ -589,7 +589,15 @@ export type OpenaiConfigType = {
     output_audio_format?: AudioFormatType;
     input_audio_transcription?: AudioTranscriptionType | null;
     turn_detection?: TurnDetectionServerVadType | null;
-    tools?: ToolDefinitionType[];
+    tools?: {
+        type: "function";
+        name: string;
+        description: string;
+        parameters: {
+            type: "object";
+            properties: Record<string, ToolParameterType>;
+        };
+    }[];
     tool_choice?: "auto" | "none" | "required" | {
         type: "function";
         name: string;
