@@ -1,15 +1,15 @@
 {
-  "name": "@openai/realtime-api-beta",
+  "name": "stardust-js",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "OpenAI Realtime API Reference Client (beta)",
+  "description": "Stardust Realtime SDK",
   "main": "index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
     "test": "mocha ./test/index.js"
   },
-  "author": "Keith Horwood <khorwood@openai.com>",
+  "author": "Tiwater <hi@tiwater.com>",
   "license": "MIT",
   "devDependencies": {
     "audio-decode": "^2.2.2",

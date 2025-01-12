@@ -531,6 +531,12 @@ export type StardustHearingType = {
     turn_detection?: TurnDetectionServerVadType | null;
 };
 
+export type StardustVisionType = {
+    enable_face_detection?: boolean;
+    enable_object_detection?: boolean;
+    enable_face_identification?: boolean;
+    object_detection_target_classes?: string[];
+};
 
 export type MessageResponse = {
     id: string;
@@ -578,6 +584,7 @@ export type StardustConfigType = {
     model: StardustModelType;
     speech?: StardustSpeechType;
     hearing?: StardustHearingType;
+    vision?: StardustVisionType;
     knowledge?: StardustKnowledgeType;
 };
 
