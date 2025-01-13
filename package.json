@@ -1,26 +1,65 @@
 {
-  "name": "stardust-js",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "description": "Stardust Realtime SDK",
-  "main": "index.js",
-  "types": "./dist/index.d.ts",
+  "name": "@ticos/realtime-api",
+  "version": "0.0.1-beta.1",
+  "description": "Official Realtime API SDK for Ticos",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "test": "mocha ./test/index.js"
+    "prebuild": "rimraf dist",
+    "build": "tsc && tsup src/index.ts --format cjs,esm --dts",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "test": "mocha -r ts-node/register 'tests/**/*.test.ts'"
   },
   "author": "Tiwater <hi@tiwater.com>",
   "license": "MIT",
-  "devDependencies": {
-    "audio-decode": "^2.2.2",
-    "chai": "^5.1.1",
-    "dotenv": "^16.4.5",
-    "mocha": "^10.7.3",
-    "prettier": "^3.3.3",
-    "typescript": "^5.6.2",
-    "websocket": "^1.0.35"
-  },
   "dependencies": {
     "ws": "^8.18.0"
-  }
+  },
+  "devDependencies": {
+    "@types/chai": "^5.0.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.11.24",
+    "@types/websocket": "^1.0.10",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^7.1.1",
+    "@typescript-eslint/parser": "^7.1.1",
+    "audio-decode": "^2.2.2",
+    "chai": "^5.1.2",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "mocha": "^11.0.1",
+    "prettier": "^3.3.3",
+    "rimraf": "^5.0.5",
+    "ts-node": "^10.9.2",
+    "tsup": "^8.0.2",
+    "typescript": "^5.3.3",
+    "websocket": "^1.0.35"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tiwater/ticos-realtime-api.git"
+  },
+  "keywords": [
+    "ticos",
+    "realtime",
+    "api",
+    "websocket",
+    "ai",
+    "chat"
+  ],
+  "bugs": {
+    "url": "https://github.com/tiwater/ticos-realtime-api/issues"
+  },
+  "homepage": "https://github.com/tiwater/ticos-realtime-api#readme"
 }

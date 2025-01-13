@@ -3,20 +3,17 @@ const btoa = globalThis.btoa;
 
 /**
  * Basic utilities for the RealtimeAPI
- * @class
  */
 export class RealtimeUtils {
   /**
    * Converts Float32Array of amplitude data to ArrayBuffer in Int16Array format
-   * @param {Float32Array} float32Array
-   * @returns {ArrayBuffer}
    */
-  static floatTo16BitPCM(float32Array) {
+  static floatTo16BitPCM(float32Array: Float32Array): ArrayBuffer {
     const buffer = new ArrayBuffer(float32Array.length * 2);
     const view = new DataView(buffer);
     let offset = 0;
     for (let i = 0; i < float32Array.length; i++, offset += 2) {
-      let s = Math.max(-1, Math.min(1, float32Array[i]));
+      const s = Math.max(-1, Math.min(1, float32Array[i]));
       view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
     }
     return buffer;
@@ -24,10 +21,8 @@ export class RealtimeUtils {
 
   /**
    * Converts a base64 string to an ArrayBuffer
-   * @param {string} base64
-   * @returns {ArrayBuffer}
    */
-  static base64ToArrayBuffer(base64) {
+  static base64ToArrayBuffer(base64: string): ArrayBuffer {
     const binaryString = atob(base64);
     const len = binaryString.length;
     const bytes = new Uint8Array(len);
@@ -39,32 +34,32 @@ export class RealtimeUtils {
 
   /**
    * Converts an ArrayBuffer, Int16Array or Float32Array to a base64 string
-   * @param {ArrayBuffer|Int16Array|Float32Array} arrayBuffer
-   * @returns {string}
    */
-  static arrayBufferToBase64(arrayBuffer) {
+  static arrayBufferToBase64(
+    arrayBuffer: ArrayBuffer | Int16Array | Float32Array
+  ): string {
     if (arrayBuffer instanceof Float32Array) {
       arrayBuffer = this.floatTo16BitPCM(arrayBuffer);
     } else if (arrayBuffer instanceof Int16Array) {
       arrayBuffer = arrayBuffer.buffer;
     }
     let binary = '';
-    let bytes = new Uint8Array(arrayBuffer);
+    const bytes = new Uint8Array(arrayBuffer);
     const chunkSize = 0x8000; // 32KB chunk size
     for (let i = 0; i < bytes.length; i += chunkSize) {
-      let chunk = bytes.subarray(i, i + chunkSize);
-      binary += String.fromCharCode.apply(null, chunk);
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
     }
     return btoa(binary);
   }
 
   /**
    * Merge two Int16Arrays from Int16Arrays or ArrayBuffers
-   * @param {ArrayBuffer|Int16Array} left
-   * @param {ArrayBuffer|Int16Array} right
-   * @returns {Int16Array}
    */
-  static mergeInt16Arrays(left, right) {
+  static mergeInt16Arrays(
+    left: ArrayBuffer | Int16Array,
+    right: ArrayBuffer | Int16Array
+  ): Int16Array {
     if (left instanceof ArrayBuffer) {
       left = new Int16Array(left);
     }
@@ -86,17 +81,14 @@ export class RealtimeUtils {
 
   /**
    * Generates an id to send with events and messages
-   * @param {string} prefix
-   * @param {number} [length]
-   * @returns {string}
    */
-  static generateId(prefix, length = 21) {
+  static generateId(prefix: string, length = 21): string {
     // base58; non-repeating chars
     const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     const str = Array(length - prefix.length)
       .fill(0)
-      .map((_) => chars[Math.floor(Math.random() * chars.length)])
+      .map(() => chars[Math.floor(Math.random() * chars.length)])
       .join('');
     return `${prefix}${str}`;
   }
-}
+} 

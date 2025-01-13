@@ -1,4 +1,30 @@
-.DS_Store
-node_modules/
-.env
+# Source
+src/
+tests/
 test/
+
+# Config files
+.eslintrc
+.prettierrc
+tsconfig.json
+tsup.config.ts
+
+# Development files
+.git/
+.github/
+.gitignore
+.env*
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Build process
+node_modules/
+coverage/
+.nyc_output/
+
+# Misc
+*.tgz
+.DS_Store
