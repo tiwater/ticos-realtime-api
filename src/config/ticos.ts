@@ -1,5 +1,5 @@
 import { RealtimeClientSettings, ToolDefinition, TicosConfigOptions, AudioConfig, TicosModelConfig } from '../types';
-import { BaseConfig } from './base';
+import { BaseConfig, ConfigManager } from './base';
 
 /**
  * Configuration manager for Ticos Realtime API
@@ -184,5 +184,40 @@ export class TicosConfig implements BaseConfig {
       url: 'wss://api.ticos.ai/v1/realtime',
       apiKey: '',
     };
+  }
+}
+
+export class TicosConfigManager extends ConfigManager {
+  protected config: TicosConfig;
+
+  constructor() {
+    super();
+    this.config = new TicosConfig();
+  }
+
+  public updateConfig(updates: Partial<TicosConfigOptions>): void {
+    if (updates.model) {
+      this.config.updateModelConfig(updates.model);
+    }
+    if (updates.speech) {
+      this.config.updateSpeechConfig(updates.speech);
+    }
+    if (updates.hearing) {
+      this.config.updateHearingConfig(updates.hearing);
+    }
+    if (updates.vision) {
+      this.config.updateVisionConfig(updates.vision);
+    }
+    if (updates.knowledge) {
+      this.config.updateKnowledgeConfig(updates.knowledge);
+    }
+  }
+
+  public getSessionPayload(): { session: TicosConfigOptions } {
+    return this.config.getSessionPayload();
+  }
+
+  public reset(): void {
+    this.config.reset();
   }
 } 

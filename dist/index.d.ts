@@ -1,37 +1,331 @@
 import { WebSocket as WebSocket$1 } from 'ws';
 
+/**
+ * Configuration options for the RealtimeClient
+ */
+interface RealtimeClientSettings$1 {
+    /** WebSocket endpoint URL */
+    url: string;
+    /** API key for authentication */
+    apiKey: string;
+    /** Whether to allow API key usage in browser (not recommended for production) */
+    dangerouslyAllowAPIKeyInBrowser?: boolean;
+    /** Enable debug logging */
+    debug?: boolean;
+}
+/**
+ * Tool definition for registering tools with the client
+ */
+interface ToolDefinition {
+    /** Name of the tool */
+    name: string;
+    /** Description of what the tool does */
+    description: string;
+    /** JSON Schema for the tool parameters */
+    parameters: {
+        type: string;
+        properties: Record<string, any>;
+        required?: string[];
+    };
+}
+/**
+ * Tool registration type combining definition and handler
+ */
+interface ToolRegistration {
+    definition: ToolDefinition;
+    handler: Function;
+}
+/**
+ * Model configuration settings
+ */
+interface TicosModelConfig {
+    /** Model provider (e.g., 'tiwater') */
+    provider: string;
+    /** Model name (e.g., 'stardust-2.5-turbo') */
+    name: string;
+    /** Supported modalities */
+    modalities: string[];
+    /** System instructions */
+    instructions: string;
+    /** Available tools */
+    tools: ToolDefinition[];
+    /** Tool choice strategy */
+    tool_choice: 'auto' | 'none' | 'required' | {
+        type: 'function';
+        name: string;
+    };
+    /** Temperature for response generation */
+    temperature: number;
+    /** Maximum tokens in responses */
+    max_response_output_tokens: number | 'inf';
+}
+/**
+ * Audio configuration settings
+ */
+interface AudioConfig$1 {
+    /** Voice ID for audio responses */
+    voice: string;
+    /** Format of audio input */
+    input_audio_format: string;
+    /** Format of audio output */
+    output_audio_format: string;
+    /** Configuration for audio transcription */
+    input_audio_transcription: any | null;
+    /** Settings for conversation turn detection */
+    turn_detection: any | null;
+}
+/**
+ * Vision configuration settings
+ */
+interface VisionConfig {
+    /** Enable face detection */
+    enable_face_detection?: boolean;
+    /** Enable object detection */
+    enable_object_detection?: boolean;
+    /** Enable face identification */
+    enable_face_identification?: boolean;
+    /** Target classes for object detection */
+    object_detection_target_classes?: string[];
+}
+/**
+ * Knowledge configuration settings
+ */
+interface KnowledgeConfig {
+    /** Available scripts for conversation */
+    scripts?: ScriptConfig[];
+}
+/**
+ * Script configuration for predefined dialogues
+ */
+interface ScriptConfig {
+    /** Unique identifier */
+    id: string;
+    /** Script name */
+    name: string;
+    /** Script description */
+    description: string;
+    /** Priority level */
+    priority?: number;
+    /** Categorization tags */
+    tags: string[];
+    /** Predefined dialogues */
+    dialogues: Dialogue[];
+}
+/**
+ * Dialogue structure for scripted responses
+ */
+interface Dialogue {
+    /** Unique identifier */
+    id: string;
+    /** Input prompts that trigger this dialogue */
+    prompts: string[];
+    /** Possible responses */
+    responses: DialogueResponse[];
+}
+/**
+ * Response types in dialogues
+ */
+type DialogueResponse = MessageResponse | FunctionResponse;
+/**
+ * Message response in dialogues
+ */
+interface MessageResponse {
+    /** Unique identifier */
+    id: string;
+    /** Response type */
+    type: 'message';
+    /** Message content */
+    message: string;
+}
+/**
+ * Function response in dialogues
+ */
+interface FunctionResponse {
+    /** Unique identifier */
+    id: string;
+    /** Response type */
+    type: 'function';
+    /** Function to execute */
+    function: string;
+}
+/**
+ * Complete Ticos configuration
+ */
+interface TicosConfigOptions {
+    /** Model configuration */
+    model: TicosModelConfig;
+    /** Speech configuration */
+    speech: Partial<AudioConfig$1>;
+    /** Hearing configuration */
+    hearing: Partial<AudioConfig$1>;
+    /** Vision configuration */
+    vision?: VisionConfig;
+    /** Knowledge configuration */
+    knowledge?: KnowledgeConfig;
+}
+/**
+ * Audio transcription configuration
+ */
+type AudioTranscriptionType = {
+    provider: string;
+    language?: string;
+    model?: string;
+};
+/**
+ * Turn detection configuration using server VAD
+ */
+type TurnDetectionServerVadType = {
+    provider: string;
+    min_silence_duration?: number;
+    silence_threshold?: number;
+};
+
+/**
+ * Types of content that can be sent in a message
+ */
+type ContentType = 'text' | 'audio' | 'image';
+/**
+ * Status of a conversation item
+ */
+type ItemStatus = 'pending' | 'completed' | 'error';
+/**
+ * Base content interface for messages
+ */
+interface ContentBase {
+    type: ContentType;
+}
+/**
+ * Text content in a message
+ */
+interface TextContent extends ContentBase {
+    type: 'text';
+    text: string;
+}
+/**
+ * Audio content in a message
+ */
+interface AudioContent extends ContentBase {
+    type: 'audio';
+    audio: string;
+    transcript?: string;
+}
+/**
+ * Image content in a message
+ */
+interface ImageContent extends ContentBase {
+    type: 'image';
+    image: string;
+    caption?: string;
+}
+/**
+ * Union type for all possible content types
+ */
+type Content = TextContent | AudioContent | ImageContent;
+/**
+ * Error information for items with error status
+ */
+interface ItemError {
+    code: string;
+    message: string;
+}
+/**
+ * Base item type for conversation items
+ */
 interface ItemType {
     id: string;
-    type: string;
-    role: string;
-    content: Array<{
-        type: string;
-        text?: string;
-        audio?: string;
-        transcript?: string;
-    }>;
-    status: 'completed' | 'in_progress';
-    object: string;
+    type: 'text' | 'audio' | 'image' | 'tool_call' | 'tool_response';
+    content: Content[];
+    status: ItemStatus;
+    error?: ItemError;
 }
-interface ToolDefinitionType {
-    name: string;
-    description: string;
+/**
+ * Conversation state type
+ */
+interface ConversationState {
+    id: string;
+    items: ItemType[];
+    status: 'active' | 'completed' | 'error';
+    metadata?: Record<string, any>;
+}
+
+/**
+ * Base event interface
+ */
+interface Event {
+    type: string;
+}
+/**
+ * WebSocket event source
+ */
+type EventSource = 'client' | 'server';
+/**
+ * Event with timestamp and source
+ */
+interface TimestampedEvent {
+    time: string;
+    source: EventSource;
+    event: Event;
+}
+/**
+ * Session update event payload
+ */
+interface SessionUpdateEvent extends Event {
+    session: RealtimeClientSettings$1;
+}
+/**
+ * Conversation start event payload
+ */
+interface ConversationStartEvent extends Event {
+    conversation_id: string;
+    metadata?: Record<string, any>;
+}
+/**
+ * Conversation end event payload
+ */
+interface ConversationEndEvent extends Event {
+    conversation_id: string;
+    reason: 'completed' | 'timeout' | 'error';
+}
+/**
+ * Item event payload
+ */
+interface ItemEvent extends Event {
+    item: ItemType;
+}
+/**
+ * Item error event payload
+ */
+interface ItemErrorEvent extends ItemEvent {
+    error: {
+        code: string;
+        message: string;
+    };
+}
+/**
+ * Tool registration event payload
+ */
+interface ToolRegisterEvent extends Event {
+    tool: ToolDefinition;
+}
+/**
+ * Tool call event payload
+ */
+interface ToolCallEvent extends Event {
+    tool_name: string;
     parameters: Record<string, any>;
+    call_id: string;
 }
-interface AudioTranscriptionType {
-    model: string;
+/**
+ * Tool response event payload
+ */
+interface ToolResponseEvent extends Event {
+    call_id: string;
+    result?: Record<string, any>;
+    error?: {
+        code: string;
+        message: string;
+    };
 }
-interface TurnDetectionServerVadType {
-    type: 'server_vad';
-    threshold: number;
-    prefix_padding_ms: number;
-    silence_duration_ms: number;
-}
-interface ResponseResourceType {
-    type: string;
-    data: any;
-}
-type AudioFormatType = "pcm16" | "g711_ulaw" | "g711_alaw";
 
 /** Callback function type for event handlers */
 type EventHandlerCallbackType = (event: Record<string, any>) => void;
@@ -485,7 +779,7 @@ declare class RealtimeClient extends RealtimeEventHandler {
     protected conversation: RealtimeConversation;
     /** Map of registered tools and their handlers */
     protected tools: Record<string, {
-        definition: ToolDefinitionType;
+        definition: ToolDefinition;
         handler: Function;
     }>;
     /**
@@ -546,9 +840,15 @@ declare class RealtimeClient extends RealtimeEventHandler {
      */
     reset(): void;
     /**
+     * Returns the current conversation items.
+     *
+     * @returns {ItemType[]} The current conversation items
+     */
+    getConversationItems(): ItemType[];
+    /**
      * Registers a new tool that can be used during conversations.
      *
-     * @param {ToolDefinitionType} definition - Tool definition including name and description
+     * @param {ToolDefinition} definition - Tool definition including name and description
      * @param {Function} handler - Function to execute when the tool is called
      * @throws {Error} If the tool definition doesn't have a name
      *
@@ -560,7 +860,7 @@ declare class RealtimeClient extends RealtimeEventHandler {
      * }, (args) => eval(args.expression));
      * ```
      */
-    registerTool(definition: ToolDefinitionType, handler: Function): void;
+    registerTool(definition: ToolDefinition, handler: Function): void;
     /**
      * Removes a registered tool.
      *
@@ -626,29 +926,79 @@ declare class RealtimeClient extends RealtimeEventHandler {
 }
 
 /**
- * Basic utilities for the RealtimeAPI
+ * Configuration manager for Ticos Realtime API
  */
-declare class RealtimeUtils {
+declare class TicosConfig implements BaseConfig {
+    protected config: TicosConfigOptions;
+    private settings;
+    get modalities(): string[];
+    get instructions(): string;
+    get tools(): ToolDefinition[];
+    get tool_choice(): 'auto' | 'none' | 'required' | {
+        type: 'function';
+        name: string;
+    };
+    get temperature(): number;
+    get max_response_output_tokens(): number | 'inf';
     /**
-     * Converts Float32Array of amplitude data to ArrayBuffer in Int16Array format
+     * Updates the client settings
      */
-    static floatTo16BitPCM(float32Array: Float32Array): ArrayBuffer;
+    updateSettings(settings: Partial<RealtimeClientSettings$1>): void;
     /**
-     * Converts a base64 string to an ArrayBuffer
+     * Gets the current client settings
      */
-    static base64ToArrayBuffer(base64: string): ArrayBuffer;
+    getSettings(): RealtimeClientSettings$1;
     /**
-     * Converts an ArrayBuffer, Int16Array or Float32Array to a base64 string
+     * Updates the model configuration
      */
-    static arrayBufferToBase64(arrayBuffer: ArrayBuffer | Int16Array | Float32Array): string;
+    updateModelConfig(updates: Partial<TicosModelConfig>): void;
     /**
-     * Merge two Int16Arrays from Int16Arrays or ArrayBuffers
+     * Updates the speech configuration
      */
-    static mergeInt16Arrays(left: ArrayBuffer | Int16Array, right: ArrayBuffer | Int16Array): Int16Array;
+    updateSpeechConfig(updates: Partial<AudioConfig$1>): void;
     /**
-     * Generates an id to send with events and messages
+     * Updates the hearing configuration
      */
-    static generateId(prefix: string, length?: number): string;
+    updateHearingConfig(updates: Partial<AudioConfig$1>): void;
+    /**
+     * Updates the vision configuration
+     */
+    updateVisionConfig(updates: Partial<TicosConfigOptions['vision']>): void;
+    /**
+     * Updates the knowledge configuration
+     */
+    updateKnowledgeConfig(updates: Partial<TicosConfigOptions['knowledge']>): void;
+    /**
+     * Adds a tool to the configuration
+     */
+    addTool(tool: ToolDefinition): void;
+    /**
+     * Removes a tool from the configuration
+     */
+    removeTool(name: string): void;
+    /**
+     * Gets all registered tools
+     */
+    getTools(): ToolDefinition[];
+    /**
+     * Gets the session payload for WebSocket communication
+     */
+    getSessionPayload(): {
+        session: TicosConfigOptions;
+    };
+    /**
+     * Resets the configuration to default values
+     */
+    reset(): void;
+}
+declare class TicosConfigManager extends ConfigManager {
+    protected config: TicosConfig;
+    constructor();
+    updateConfig(updates: Partial<TicosConfigOptions>): void;
+    getSessionPayload(): {
+        session: TicosConfigOptions;
+    };
+    reset(): void;
 }
 
 /**
@@ -670,7 +1020,7 @@ declare class RealtimeUtils {
  * @property {number} [temperature] - Sampling temperature for model responses (0.0 to 1.0).
  * @property {number} [max_response_output_tokens] - Maximum number of tokens in model responses.
  */
-interface OpenAIConfig$1 {
+interface OpenAIConfig {
     apiKey?: string;
     model?: string;
     dangerouslyAllowAPIKeyInBrowser?: boolean;
@@ -702,7 +1052,7 @@ interface OpenAIConfig$1 {
  */
 declare class OpenAIConfigManager extends ConfigManager {
     /** Current configuration state */
-    config: OpenAIConfig$1;
+    config: OpenAIConfig;
     /**
      * Creates a new OpenAIConfigManager instance with default settings.
      * Initializes the configuration with sensible defaults for realtime interactions.
@@ -732,7 +1082,7 @@ declare class OpenAIConfigManager extends ConfigManager {
      * });
      * ```
      */
-    updateConfig(updates: Partial<OpenAIConfig$1>): void;
+    updateConfig(updates: Partial<OpenAIConfig>): void;
     /**
      * Retrieves the current configuration formatted as a session payload.
      * Used internally by the client to send configuration to the API.
@@ -746,25 +1096,58 @@ declare class OpenAIConfigManager extends ConfigManager {
      * ```
      */
     getSessionPayload(): {
-        session: OpenAIConfig$1;
+        session: OpenAIConfig;
     };
 }
 
 declare class OpenAIRealtimeClient extends RealtimeClient {
     protected configManager: OpenAIConfigManager;
     constructor(settings?: RealtimeClientSettings);
-    updateConfig(updates: Partial<OpenAIConfig$1>): void;
+    updateConfig(updates: Partial<OpenAIConfig>): void;
 }
 
 type OpenaiVoiceType = "alloy" | "ash" | "ballad" | "coral" | "echo" | "sage" | "shimmer" | "verse";
-interface OpenaiToolDefinitionType extends ToolDefinitionType {
-    type: 'function';
+/**
+ * OpenAI-specific tool definition extending the base tool definition
+ */
+interface OpenaiToolDefinition extends ToolDefinition {
+    /** OpenAI-specific tool properties */
+    openai_properties?: Record<string, any>;
 }
-interface OpenAIConfig extends BaseConfig, AudioConfig {
+/**
+ * OpenAI configuration options
+ */
+interface OpenaiConfig extends BaseConfig, AudioConfig {
     voice: OpenaiVoiceType;
     input_audio_transcription: AudioTranscriptionType | null;
     turn_detection: TurnDetectionServerVadType | null;
-    tools: OpenaiToolDefinitionType[];
+    tools: OpenaiToolDefinition[];
 }
 
-export { type AudioFormatType, type AudioTranscriptionType, type ItemType, type OpenAIConfig, OpenAIRealtimeClient, type OpenaiToolDefinitionType, type OpenaiVoiceType, RealtimeAPI, RealtimeClient, type RealtimeClientSettings, RealtimeConversation, RealtimeEventHandler, RealtimeUtils, type ResponseResourceType, type ToolDefinitionType, type TurnDetectionServerVadType };
+/**
+ * Basic utilities for the RealtimeAPI
+ */
+declare class RealtimeUtils {
+    /**
+     * Converts Float32Array of amplitude data to ArrayBuffer in Int16Array format
+     */
+    static floatTo16BitPCM(float32Array: Float32Array): ArrayBuffer;
+    /**
+     * Converts a base64 string to an ArrayBuffer
+     */
+    static base64ToArrayBuffer(base64: string): ArrayBuffer;
+    /**
+     * Converts an ArrayBuffer, Int16Array or Float32Array to a base64 string
+     */
+    static arrayBufferToBase64(arrayBuffer: ArrayBuffer | Int16Array | Float32Array): string;
+    /**
+     * Merge two Int16Arrays from Int16Arrays or ArrayBuffers
+     */
+    static mergeInt16Arrays(left: ArrayBuffer | Int16Array, right: ArrayBuffer | Int16Array): Int16Array;
+    /**
+     * Generates an id to send with events and messages
+     */
+    static generateId(prefix: string, length?: number): string;
+}
+
+export { type AudioConfig$1 as AudioConfig, type AudioContent, type BaseConfig, ConfigManager, type Content, type ContentBase, type ContentType, type ConversationEndEvent, type ConversationStartEvent, type ConversationState, type Event, type EventSource, type ImageContent, type ItemError, type ItemErrorEvent, type ItemEvent, type ItemStatus, type ItemType, type KnowledgeConfig, OpenAIRealtimeClient, type OpenaiConfig, type OpenaiToolDefinition, type OpenaiVoiceType, RealtimeAPI, RealtimeClient, type RealtimeClientSettings$1 as RealtimeClientSettings, RealtimeConversation, RealtimeEventHandler, RealtimeUtils, type SessionUpdateEvent, type TextContent, TicosConfig, TicosConfigManager, type TicosConfigOptions, type TicosModelConfig, type TimestampedEvent, type ToolCallEvent, type ToolDefinition, type ToolRegisterEvent, type ToolRegistration, type ToolResponseEvent, type VisionConfig };
