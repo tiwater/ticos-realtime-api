@@ -1,38 +1,89 @@
 import type { ItemType } from './types';
 
+/**
+ * Manages the state and events of a realtime conversation.
+ * Handles conversation items, audio queuing, and event processing.
+ * 
+ * @class RealtimeConversation
+ * 
+ * @example
+ * ```typescript
+ * const conversation = new RealtimeConversation();
+ * conversation.addItem({
+ *   id: '123',
+ *   type: 'text',
+ *   content: [{ type: 'text', text: 'Hello!' }]
+ * });
+ * ```
+ */
 export class RealtimeConversation {
+  /** Array of conversation items */
   private items: ItemType[] = [];
+  /** ID of the currently active item */
   private currentItemId: string | null;
+  /** Queued audio data for processing */
   private queuedAudio: Int16Array | null;
+  /** Default audio sampling frequency in Hz */
   public readonly defaultFrequency: number = 24000;
 
+  /**
+   * Creates a new RealtimeConversation instance.
+   * Initializes empty conversation state.
+   */
   constructor() {
     this.items = [];
     this.currentItemId = null;
     this.queuedAudio = null;
   }
 
+  /**
+   * Adds a new item to the conversation.
+   * Sets it as the current item.
+   * 
+   * @param {ItemType} item - The item to add to the conversation
+   */
   public addItem(item: ItemType): void {
     this.items.push(item);
     this.currentItemId = item.id;
   }
 
+  /**
+   * Gets the currently active conversation item.
+   * 
+   * @returns {ItemType | null} The current item or null if none is active
+   */
   public getCurrentItem(): ItemType | null {
     return this.currentItemId 
       ? this.items.find(item => item.id === this.currentItemId) || null 
       : null;
   }
 
+  /**
+   * Gets all items in the conversation.
+   * Returns a copy of the items array to prevent direct modification.
+   * 
+   * @returns {ItemType[]} Array of all conversation items
+   */
   public getItems(): ItemType[] {
     return [...this.items];
   }
 
+  /**
+   * Clears the conversation state.
+   * Removes all items and resets audio queue.
+   */
   public clear(): void {
     this.items = [];
     this.currentItemId = null;
     this.queuedAudio = null;
   }
 
+  /**
+   * Updates an existing conversation item.
+   * 
+   * @param {string} itemId - ID of the item to update
+   * @param {Partial<ItemType>} updates - Partial item data to merge with existing item
+   */
   public updateItem(itemId: string, updates: Partial<ItemType>): void {
     const itemIndex = this.items.findIndex(item => item.id === itemId);
     if (itemIndex !== -1) {
@@ -40,18 +91,48 @@ export class RealtimeConversation {
     }
   }
 
+  /**
+   * Queues audio data for processing.
+   * 
+   * @param {Int16Array} audio - Audio data to queue
+   */
   public queueInputAudio(audio: Int16Array): void {
     this.queuedAudio = audio;
   }
 
+  /**
+   * Gets the currently queued audio data.
+   * 
+   * @returns {Int16Array | null} Queued audio data or null if none is queued
+   */
   public getQueuedAudio(): Int16Array | null {
     return this.queuedAudio;
   }
 
+  /**
+   * Clears the queued audio data.
+   */
   public clearQueuedAudio(): void {
     this.queuedAudio = null;
   }
 
+  /**
+   * Processes various conversation events and updates the conversation state accordingly.
+   * Handles item creation, updates, deletions, and various content updates.
+   * 
+   * @param {string} event - Type of event to process
+   * @param {...any[]} args - Event-specific arguments
+   * @returns {{ item: ItemType | null; delta: any }} Updated item and changes made
+   * 
+   * @example
+   * ```typescript
+   * const { item, delta } = conversation.processEvent('item.created', {
+   *   id: '123',
+   *   type: 'text',
+   *   content: [{ type: 'text', text: 'Hello!' }]
+   * });
+   * ```
+   */
   public processEvent(event: string, ...args: any[]): { item: ItemType | null; delta: any } {
     switch (event) {
       case 'item.created': {
@@ -159,6 +240,13 @@ export class RealtimeConversation {
     }
   }
 
+  /**
+   * Converts audio data to base64 string format.
+   * 
+   * @private
+   * @param {Int16Array} audio - Audio data to encode
+   * @returns {string} Base64 encoded audio data
+   */
   private encodeAudioToBase64(audio: Int16Array): string {
     return btoa(String.fromCharCode(...new Uint8Array(audio.buffer)));
   }
