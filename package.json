@@ -19,7 +19,8 @@
     "test": "mocha -r ts-node/register 'tests/**/*.test.ts'",
     "docs:generate": "NODE_OPTIONS='--loader ts-node/esm' ts-node --project scripts/tsconfig.json scripts/generate-api-docs.mts",
     "docs:serve": "serve docs",
-    "docs": "pnpm docs:generate && pnpm docs:serve"
+    "docs": "pnpm docs:generate && pnpm docs:serve",
+    "prepare": "pnpm build"
   },
   "author": "Tiwater <hi@tiwater.com>",
   "license": "MIT",
