@@ -166,6 +166,15 @@ export class RealtimeClient extends RealtimeEventHandler {
   }
 
   /**
+   * Returns the current conversation items.
+   * 
+   * @returns {ItemType[]} The current conversation items
+   */
+  public getConversationItems(): ItemType[] {
+    return this.conversation.getItems();
+  }
+
+  /**
    * Registers a new tool that can be used during conversations.
    * 
    * @param {ToolDefinitionType} definition - Tool definition including name and description

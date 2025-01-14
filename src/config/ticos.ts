@@ -5,6 +5,16 @@ export interface TicosModelConfig extends BaseConfig {
   name: string;
 }
 
+export interface ScriptConfig {
+  name: string;
+  script: string;
+  description?: string;
+}
+
+export interface KnowledgeConfig {
+  scripts?: ScriptConfig[];
+}
+
 export interface TicosConfig {
   model: TicosModelConfig;
   speech: Partial<AudioConfig>;
@@ -15,6 +25,7 @@ export interface TicosConfig {
     enable_face_identification?: boolean;
     object_detection_target_classes?: string[];
   };
+  knowledge?: KnowledgeConfig;
 }
 
 export class TicosConfigManager extends ConfigManager {
