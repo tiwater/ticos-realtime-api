@@ -1,74 +1,162 @@
-import { BaseConfig, AudioConfig, ConfigManager } from './base';
-
-export interface TicosModelConfig extends BaseConfig {
-  provider: string;
-  name: string;
-}
-
-
-export type MessageResponse = {
-  id: string;
-  type: 'message';
-  message: string; // The response content, either texts or predefined actions
-};
-
-export type FunctionResponse = {
-  id: string;
-  type: 'function';
-  function: string;
-};
-
-export type DialogueResponse = MessageResponse | FunctionResponse;
+import { RealtimeClientSettings, ToolDefinition, TicosConfigOptions, AudioConfig, TicosModelConfig } from '../types';
+import { BaseConfig } from './base';
 
 /**
-* Represents a mapping between a human's input and the robot's possible responses.
-* When a human's question matches the prompt (using vector similarity),
-* the robot will use one of the responses as its guided answer.
-*/
-export type Dialogue = {
-  id: string;
-  prompts: string[]; // The human's input/question that prompts this response
-  responses: DialogueResponse[]; // Array of possible response sequences. Each sequence contains one or more sentences.
-};
-
-/**
-* A script is a collection of predefined dialogues that guide
-* how the robot should respond to specific human inputs.
-*/
-export type ScriptConfig = {
-  id: string;
-  name: string;
-  description: string;
-  priority?: number; // Higher priority scripts take precedence when multiple matches are found
-  tags: string[]; // Tags help categorize scripts by topics or scenarios
-  dialogues: Dialogue[]; // The dialogues in this script
-};
-
-export interface KnowledgeConfig {
-  scripts?: ScriptConfig[];
-}
-
-export interface TicosConfig {
-  model: TicosModelConfig;
-  speech: Partial<AudioConfig>;
-  hearing: Partial<AudioConfig>;
-  vision?: {
-    enable_face_detection?: boolean;
-    enable_object_detection?: boolean;
-    enable_face_identification?: boolean;
-    object_detection_target_classes?: string[];
+ * Configuration manager for Ticos Realtime API
+ */
+export class TicosConfig implements BaseConfig {
+  protected config: TicosConfigOptions = {
+    model: {
+      provider: 'tiwater',
+      name: 'stardust-2.5-turbo',
+      modalities: ['text', 'audio'],
+      instructions: '',
+      tools: [],
+      tool_choice: 'auto',
+      temperature: 0.8,
+      max_response_output_tokens: 4096,
+    },
+    speech: {
+      voice: 'verse',
+      output_audio_format: 'pcm16',
+    },
+    hearing: {
+      input_audio_format: 'pcm16',
+      input_audio_transcription: null,
+      turn_detection: null,
+    }
   };
-  knowledge?: KnowledgeConfig;
-}
 
-export class TicosConfigManager extends ConfigManager {
-  protected config!: TicosConfig;
+  private settings: RealtimeClientSettings = {
+    url: 'wss://api.ticos.ai/v1/realtime',
+    apiKey: '',
+  };
 
-  constructor() {
-    super();
-    this.reset();
+  // BaseConfig implementation
+  public get modalities(): string[] {
+    return this.config.model.modalities;
   }
 
+  public get instructions(): string {
+    return this.config.model.instructions;
+  }
+
+  public get tools(): ToolDefinition[] {
+    return this.config.model.tools;
+  }
+
+  public get tool_choice(): 'auto' | 'none' | 'required' | { type: 'function'; name: string } {
+    return this.config.model.tool_choice;
+  }
+
+  public get temperature(): number {
+    return this.config.model.temperature;
+  }
+
+  public get max_response_output_tokens(): number | 'inf' {
+    return this.config.model.max_response_output_tokens;
+  }
+
+  /**
+   * Updates the client settings
+   */
+  public updateSettings(settings: Partial<RealtimeClientSettings>): void {
+    this.settings = {
+      ...this.settings,
+      ...settings,
+    };
+  }
+
+  /**
+   * Gets the current client settings
+   */
+  public getSettings(): RealtimeClientSettings {
+    return { ...this.settings };
+  }
+
+  /**
+   * Updates the model configuration
+   */
+  public updateModelConfig(updates: Partial<TicosModelConfig>): void {
+    this.config.model = {
+      ...this.config.model,
+      ...updates,
+    };
+  }
+
+  /**
+   * Updates the speech configuration
+   */
+  public updateSpeechConfig(updates: Partial<AudioConfig>): void {
+    this.config.speech = {
+      ...this.config.speech,
+      ...updates,
+    };
+  }
+
+  /**
+   * Updates the hearing configuration
+   */
+  public updateHearingConfig(updates: Partial<AudioConfig>): void {
+    this.config.hearing = {
+      ...this.config.hearing,
+      ...updates,
+    };
+  }
+
+  /**
+   * Updates the vision configuration
+   */
+  public updateVisionConfig(updates: Partial<TicosConfigOptions['vision']>): void {
+    this.config.vision = {
+      ...this.config.vision,
+      ...updates,
+    };
+  }
+
+  /**
+   * Updates the knowledge configuration
+   */
+  public updateKnowledgeConfig(updates: Partial<TicosConfigOptions['knowledge']>): void {
+    this.config.knowledge = {
+      ...this.config.knowledge,
+      ...updates,
+    };
+  }
+
+  /**
+   * Adds a tool to the configuration
+   */
+  public addTool(tool: ToolDefinition): void {
+    this.config.model.tools.push(tool);
+  }
+
+  /**
+   * Removes a tool from the configuration
+   */
+  public removeTool(name: string): void {
+    this.config.model.tools = this.config.model.tools.filter(tool => tool.name !== name);
+  }
+
+  /**
+   * Gets all registered tools
+   */
+  public getTools(): ToolDefinition[] {
+    return [...this.config.model.tools];
+  }
+
+  /**
+   * Gets the session payload for WebSocket communication
+   */
+  public getSessionPayload(): { session: TicosConfigOptions } {
+    return {
+      session: { ...this.config },
+    };
+  }
+
+  /**
+   * Resets the configuration to default values
+   */
   public reset(): void {
     this.config = {
       model: {
@@ -91,42 +179,10 @@ export class TicosConfigManager extends ConfigManager {
         turn_detection: null,
       }
     };
-  }
 
-  public updateConfig(updates: Partial<TicosConfig>): void {
-    if (updates.model) {
-      this.config.model = {
-        ...this.config.model,
-        ...updates.model
-      };
-    }
-    if (updates.speech) {
-      this.config.speech = {
-        ...this.config.speech,
-        ...updates.speech
-      };
-    }
-    if (updates.hearing) {
-      this.config.hearing = {
-        ...this.config.hearing,
-        ...updates.hearing
-      };
-    }
-    if (updates.vision) {
-      this.config.vision = {
-        ...this.config.vision,
-        ...updates.vision
-      };
-    }
-    if (updates.knowledge) {
-      this.config.knowledge = {
-        ...this.config.knowledge,
-        ...updates.knowledge
-      };
-    }
-  }
-
-  public getSessionPayload(): { session: TicosConfig } {
-    return { session: this.config };
+    this.settings = {
+      url: 'wss://api.ticos.ai/v1/realtime',
+      apiKey: '',
+    };
   }
 } 

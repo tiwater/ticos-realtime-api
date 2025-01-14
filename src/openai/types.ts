@@ -1,15 +1,22 @@
 import type { BaseConfig, AudioConfig } from '../config/base';
-import type { AudioTranscriptionType, TurnDetectionServerVadType, ToolDefinitionType } from '../types';
+import type { ToolDefinition, AudioTranscriptionType, TurnDetectionServerVadType } from '../types/client';
 
 export type OpenaiVoiceType = "alloy" | "ash" | "ballad" | "coral" | "echo" | "sage" | "shimmer" | "verse";
 
-export interface OpenaiToolDefinitionType extends ToolDefinitionType {
-  type: 'function';
+/**
+ * OpenAI-specific tool definition extending the base tool definition
+ */
+export interface OpenaiToolDefinition extends ToolDefinition {
+  /** OpenAI-specific tool properties */
+  openai_properties?: Record<string, any>;
 }
 
-export interface OpenAIConfig extends BaseConfig, AudioConfig {
+/**
+ * OpenAI configuration options
+ */
+export interface OpenaiConfig extends BaseConfig, AudioConfig {
   voice: OpenaiVoiceType;
   input_audio_transcription: AudioTranscriptionType | null;
   turn_detection: TurnDetectionServerVadType | null;
-  tools: OpenaiToolDefinitionType[];
+  tools: OpenaiToolDefinition[];
 } 

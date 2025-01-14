@@ -1,7 +1,7 @@
 import { RealtimeEventHandler } from './event-handler';
 import { RealtimeAPI } from './api';
 import { RealtimeConversation } from './conversation';
-import type { ItemType, ToolDefinitionType } from './types';
+import type { ItemType, ToolDefinition } from './types';
 import { ConfigManager } from './config/base';
 
 /**
@@ -61,7 +61,7 @@ export class RealtimeClient extends RealtimeEventHandler {
   /** Conversation manager instance */
   protected conversation: RealtimeConversation;
   /** Map of registered tools and their handlers */
-  protected tools: Record<string, { definition: ToolDefinitionType; handler: Function }> = {};
+  protected tools: Record<string, { definition: ToolDefinition; handler: Function }> = {};
 
   /**
    * Creates a new RealtimeClient instance.
@@ -177,7 +177,7 @@ export class RealtimeClient extends RealtimeEventHandler {
   /**
    * Registers a new tool that can be used during conversations.
    * 
-   * @param {ToolDefinitionType} definition - Tool definition including name and description
+   * @param {ToolDefinition} definition - Tool definition including name and description
    * @param {Function} handler - Function to execute when the tool is called
    * @throws {Error} If the tool definition doesn't have a name
    * 
@@ -189,7 +189,7 @@ export class RealtimeClient extends RealtimeEventHandler {
    * }, (args) => eval(args.expression));
    * ```
    */
-  public registerTool(definition: ToolDefinitionType, handler: Function): void {
+  public registerTool(definition: ToolDefinition, handler: Function): void {
     if (!definition.name) {
       throw new Error('Tool definition must have a name');
     }

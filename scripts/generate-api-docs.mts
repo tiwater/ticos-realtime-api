@@ -1,4 +1,6 @@
 import * as fs from 'fs';
+import * as path from 'path';
+import * as TJS from 'typescript-json-schema';
 
 const openApiSpec = {
   openapi: '3.0.0',
@@ -707,4 +709,19 @@ const redocHTML = `
 // Write the HTML file
 fs.writeFileSync('docs/index.html', redocHTML);
 
-console.log('✨ Generated OpenAPI documentation in docs/'); 
+console.log('✨ Generated OpenAPI documentation in docs/');
+
+// Generate JSON Schema from TypeScript types
+const program = TJS.getProgramFromFiles(
+  [
+    path.resolve('src/types/client.ts'),
+    path.resolve('src/types/conversation.ts'),
+    path.resolve('src/types/events.ts'),
+    path.resolve('src/client.ts'),
+    path.resolve('src/conversation.ts'),
+    path.resolve('src/api.ts'),
+  ],
+  {
+    strictNullChecks: true,
+  }
+); 
