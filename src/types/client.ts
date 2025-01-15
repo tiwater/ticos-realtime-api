@@ -13,19 +13,46 @@ export interface RealtimeClientSettings {
 }
 
 /**
+ * Tool parameter definition
+ */
+export interface ToolParameter {
+  /** Parameter type */
+  type: string;
+  /** Parameter description */
+  description: string;
+}
+
+/**
  * Tool definition for registering tools with the client
  */
 export interface ToolDefinition {
+  /** Tool type, always "function" */
+  type: "function";
+  /** Optional unique identifier */
+  id?: string;
   /** Name of the tool */
   name: string;
   /** Description of what the tool does */
   description: string;
-  /** JSON Schema for the tool parameters */
+  /** Parameters schema */
   parameters: {
-    type: string;
-    properties: Record<string, any>;
-    required?: string[];
+    type: "object";
+    properties: Record<string, ToolParameter>;
   };
+  /** Required parameter names */
+  required: string[];
+  /** Tool operation mode */
+  operation_mode: "client_mode" | "server_mode";
+  /** Tool execution type */
+  execution_type: "synchronous" | "asynchronous";
+  /** How to handle the tool's result */
+  result_handling: "process_in_llm" | "process_in_client" | "ignore_result";
+  /** Tool implementation code */
+  code: string;
+  /** Programming language of the code */
+  language: "python" | "shell";
+  /** Operating system platform */
+  platform: "linux" | "macos" | "windows";
 }
 
 /**
