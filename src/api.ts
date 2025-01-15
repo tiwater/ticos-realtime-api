@@ -1,24 +1,9 @@
 import { RealtimeEventHandler } from './event-handler';
 import type { WebSocket as WSType } from 'ws';
+import type { ClientOptions } from './types/client';
 
 /** Type alias for WebSocket instances that works in both Node.js and browser environments */
 type WebSocketType = WSType | WebSocket;
-
-/**
- * Configuration settings for initializing the Realtime API client.
- * 
- * @interface RealtimeAPISettings
- * @property {string} [url] - WebSocket endpoint URL. Defaults to OpenAI's realtime API endpoint.
- * @property {string} [apiKey] - API key for authentication. Required for non-browser environments.
- * @property {boolean} [dangerouslyAllowAPIKeyInBrowser] - Whether to allow API key usage in browser (not recommended).
- * @property {boolean} [debug] - Enable debug logging of WebSocket communication.
- */
-interface RealtimeAPISettings {
-  url?: string;
-  apiKey?: string;
-  dangerouslyAllowAPIKeyInBrowser?: boolean;
-  debug?: boolean;
-}
 
 /**
  * Main client for interacting with the Realtime API.
@@ -52,10 +37,10 @@ export class RealtimeAPI extends RealtimeEventHandler {
   /**
    * Creates a new RealtimeAPI instance.
    * 
-   * @param {RealtimeAPISettings} settings - Configuration settings for the client
+   * @param {ClientOptions} settings - Configuration settings for the client
    * @throws {Error} If API key is provided in browser without explicit permission
    */
-  constructor(settings: RealtimeAPISettings = {}) {
+  constructor(settings: ClientOptions = { url: 'wss://api.ticos.ai/v1/realtime', apiKey: '' }) {
     super();
     this.url = settings.url || this.defaultUrl;
     this.apiKey = settings.apiKey || null;

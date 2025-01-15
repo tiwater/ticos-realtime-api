@@ -1,5 +1,4 @@
-import type { BaseConfig, AudioConfig } from '../config/base';
-import type { ToolDefinition, AudioTranscriptionType, TurnDetectionServerVadType } from '../types/client';
+import type { AudioConfig, ToolDefinition } from '../types/client';
 
 export type OpenaiVoiceType = "alloy" | "ash" | "ballad" | "coral" | "echo" | "sage" | "shimmer" | "verse";
 
@@ -14,9 +13,22 @@ export interface OpenaiToolDefinition extends ToolDefinition {
 /**
  * OpenAI configuration options
  */
-export interface OpenaiConfig extends BaseConfig, AudioConfig {
+export interface OpenaiConfig {
+  /** Voice for text-to-speech */
   voice: OpenaiVoiceType;
-  input_audio_transcription: AudioTranscriptionType | null;
-  turn_detection: TurnDetectionServerVadType | null;
+  /** Audio input/output configuration */
+  input_audio_format: string;
+  output_audio_format: string;
+  input_audio_transcription: any | null;
+  turn_detection: any | null;
+  /** Available tools */
   tools: OpenaiToolDefinition[];
+  /** Required system instructions */
+  instructions: string;
+  /** Tool choice strategy */
+  tool_choice: 'auto' | 'none' | 'required' | { type: 'function'; name: string };
+  /** Temperature for response generation */
+  temperature: number;
+  /** Maximum tokens in responses */
+  max_response_output_tokens: number | 'inf';
 } 

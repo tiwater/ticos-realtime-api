@@ -1,5 +1,5 @@
 import { ItemType } from './conversation';
-import { RealtimeClientSettings, ToolDefinition } from './client';
+import { ClientOptions, ToolDefinition, RealtimeConfig } from './client';
 
 /**
  * Base event interface
@@ -26,7 +26,7 @@ export interface TimestampedEvent {
  * Session update event payload
  */
 export interface SessionUpdateEvent extends Event {
-  session: RealtimeClientSettings;
+  session: RealtimeConfig;
 }
 
 /**

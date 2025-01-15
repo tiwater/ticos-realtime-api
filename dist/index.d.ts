@@ -3,7 +3,7 @@ import { WebSocket as WebSocket$1 } from 'ws';
 /**
  * Configuration options for the RealtimeClient
  */
-interface RealtimeClientSettings$1 {
+interface RealtimeOptions$1 {
     /** WebSocket endpoint URL */
     url: string;
     /** API key for authentication */
@@ -64,7 +64,7 @@ interface ToolRegistration {
 /**
  * Model configuration settings
  */
-interface TicosModelConfig {
+interface ModelConfig {
     /** Model provider (e.g., 'tiwater') */
     provider: string;
     /** Model name (e.g., 'stardust-2.5-turbo') */
@@ -88,7 +88,7 @@ interface TicosModelConfig {
 /**
  * Audio configuration settings
  */
-interface AudioConfig$1 {
+interface AudioConfig {
     /** Voice ID for audio responses */
     voice: string;
     /** Format of audio input */
@@ -175,36 +175,33 @@ interface FunctionResponse {
     function: string;
 }
 /**
- * Complete Ticos configuration
+ * Complete configuration
  */
-interface TicosConfigOptions {
+interface ConfigOptions {
     /** Model configuration */
-    model: TicosModelConfig;
+    model: ModelConfig;
     /** Speech configuration */
-    speech: Partial<AudioConfig$1>;
+    speech: Partial<AudioConfig>;
     /** Hearing configuration */
-    hearing: Partial<AudioConfig$1>;
+    hearing: Partial<AudioConfig>;
     /** Vision configuration */
     vision?: VisionConfig;
     /** Knowledge configuration */
     knowledge?: KnowledgeConfig;
 }
 /**
- * Audio transcription configuration
+ * Base configuration interface that all provider configs must implement
  */
-type AudioTranscriptionType = {
-    provider: string;
-    language?: string;
-    model?: string;
-};
-/**
- * Turn detection configuration using server VAD
- */
-type TurnDetectionServerVadType = {
-    provider: string;
-    min_silence_duration?: number;
-    silence_threshold?: number;
-};
+interface BaseConfig {
+    /** Get session payload for the server */
+    getSessionPayload(): {
+        session: any;
+    };
+    /** Update configuration with partial updates */
+    updateConfig(updates: any): void;
+    /** Reset configuration to defaults */
+    reset(): void;
+}
 
 /**
  * Types of content that can be sent in a message
@@ -296,7 +293,7 @@ interface TimestampedEvent {
  * Session update event payload
  */
 interface SessionUpdateEvent extends Event {
-    session: RealtimeClientSettings$1;
+    session: RealtimeOptions$1;
 }
 /**
  * Conversation start event payload
@@ -433,13 +430,13 @@ type WebSocketType = WebSocket$1 | WebSocket;
 /**
  * Configuration settings for initializing the Realtime API client.
  *
- * @interface RealtimeAPISettings
+ * @interface RealtimeOptions
  * @property {string} [url] - WebSocket endpoint URL. Defaults to OpenAI's realtime API endpoint.
  * @property {string} [apiKey] - API key for authentication. Required for non-browser environments.
  * @property {boolean} [dangerouslyAllowAPIKeyInBrowser] - Whether to allow API key usage in browser (not recommended).
  * @property {boolean} [debug] - Enable debug logging of WebSocket communication.
  */
-interface RealtimeAPISettings {
+interface RealtimeOptions {
     url?: string;
     apiKey?: string;
     dangerouslyAllowAPIKeyInBrowser?: boolean;
@@ -479,7 +476,7 @@ declare class RealtimeAPI extends RealtimeEventHandler {
      * @param {RealtimeAPISettings} settings - Configuration settings for the client
      * @throws {Error} If API key is provided in browser without explicit permission
      */
-    constructor(settings?: RealtimeAPISettings);
+    constructor(settings?: RealtimeOptions);
     /**
      * Checks if the client is currently connected to the WebSocket server.
      *
@@ -681,129 +678,14 @@ declare class RealtimeConversation {
 }
 
 /**
- * Base configuration interface for all Realtime API clients.
- * Defines the common configuration properties shared across different implementations.
- *
- * @interface BaseConfig
- * @property {string[]} modalities - List of supported interaction modalities (e.g., ['text', 'audio']).
- * @property {string} instructions - System instructions or prompts for the model.
- * @property {any[]} tools - Array of tool configurations that the model can use.
- * @property {'auto' | 'none' | 'required' | { type: 'function'; name: string }} tool_choice - Tool selection strategy.
- * @property {number} temperature - Sampling temperature for model responses (0.0 to 1.0).
- * @property {number | 'inf'} max_response_output_tokens - Maximum tokens in model responses ('inf' for unlimited).
- */
-interface BaseConfig {
-    modalities: string[];
-    instructions: string;
-    tools: any[];
-    tool_choice: 'auto' | 'none' | 'required' | {
-        type: 'function';
-        name: string;
-    };
-    temperature: number;
-    max_response_output_tokens: number | 'inf';
-}
-/**
- * Configuration interface for audio-related features.
- * Defines settings specific to audio input and output handling.
- *
- * @interface AudioConfig
- * @property {string} voice - Voice ID to use for audio responses.
- * @property {string} input_audio_format - Format of the audio input (e.g., 'pcm16', 'mp3').
- * @property {string} output_audio_format - Format of the audio output (e.g., 'pcm16', 'mp3').
- * @property {any | null} input_audio_transcription - Configuration for audio input transcription.
- * @property {any | null} turn_detection - Settings for conversation turn detection in audio.
- */
-interface AudioConfig {
-    voice: string;
-    input_audio_format: string;
-    output_audio_format: string;
-    input_audio_transcription: any | null;
-    turn_detection: any | null;
-}
-/**
- * Abstract base class for configuration management.
- * Provides a common interface for managing configuration across different implementations.
- *
- * @abstract
- * @class ConfigManager
- *
- * @example
- * ```typescript
- * class MyConfigManager extends ConfigManager {
- *   // Implement abstract methods
- *   updateConfig(updates: Partial<MyConfig>) { ... }
- *   getSessionPayload() { ... }
- *   reset() { ... }
- * }
- * ```
- */
-declare abstract class ConfigManager {
-    /** Current configuration state. Type is specified by implementing classes. */
-    protected config: any;
-    /**
-     * Updates the current configuration with new values.
-     * @abstract
-     * @param {Partial<any>} updates - Partial configuration object with values to update
-     */
-    abstract updateConfig(updates: Partial<any>): void;
-    /**
-     * Retrieves the configuration formatted as a session payload.
-     * @abstract
-     * @returns {any} Configuration wrapped in an appropriate format for API communication
-     */
-    abstract getSessionPayload(): any;
-    /**
-     * Resets the configuration to default values.
-     * @abstract
-     */
-    abstract reset(): void;
-}
-
-/**
- * Configuration settings for initializing the Realtime Client.
- *
- * @interface RealtimeClientSettings
- * @property {string} [url] - WebSocket endpoint URL. Defaults to the API's default URL.
- * @property {string} [apiKey] - API key for authentication. Required for non-browser environments.
- * @property {boolean} [dangerouslyAllowAPIKeyInBrowser] - Whether to allow API key usage in browser (not recommended).
- * @property {boolean} [debug] - Enable debug logging of WebSocket communication.
- */
-interface RealtimeClientSettings {
-    url?: string;
-    apiKey?: string;
-    dangerouslyAllowAPIKeyInBrowser?: boolean;
-    debug?: boolean;
-}
-/**
  * High-level client for the Realtime API that manages conversations and tools.
  * Provides an interface for connecting to the API, managing conversations,
  * and handling tool registrations and executions.
- *
- * @extends {RealtimeEventHandler}
- *
- * @example
- * ```typescript
- * const client = new RealtimeClient({
- *   apiKey: 'your-api-key',
- *   debug: true
- * });
- *
- * await client.connect();
- * client.registerTool({
- *   name: 'greet',
- *   description: 'Greets a person'
- * }, (args) => `Hello, ${args.name}!`);
- * ```
  */
 declare class RealtimeClient extends RealtimeEventHandler {
-    /** Configuration manager instance */
-    protected configManager: ConfigManager;
-    /** Low-level API client instance */
+    protected config: BaseConfig;
     protected realtime: RealtimeAPI;
-    /** Conversation manager instance */
     protected conversation: RealtimeConversation;
-    /** Map of registered tools and their handlers */
     protected tools: Record<string, {
         definition: ToolDefinition;
         handler: Function;
@@ -811,9 +693,10 @@ declare class RealtimeClient extends RealtimeEventHandler {
     /**
      * Creates a new RealtimeClient instance.
      *
-     * @param {RealtimeClientSettings} settings - Configuration settings for the client
+     * @param {RealtimeOptions} settings - Configuration settings for the client
+     * @param {BaseConfig} config - Configuration instance
      */
-    constructor(settings?: RealtimeClientSettings);
+    constructor(settings: RealtimeOptions$1 | undefined, config: BaseConfig);
     /**
      * Sets up event handlers for the API client.
      * Forwards all events to the client's event system with additional metadata.
@@ -949,187 +832,10 @@ declare class RealtimeClient extends RealtimeEventHandler {
     } | {
         item: ItemType;
     }>;
-}
-
-/**
- * Configuration manager for Ticos Realtime API
- */
-declare class TicosConfig implements BaseConfig {
-    protected config: TicosConfigOptions;
-    private settings;
-    get modalities(): string[];
-    get instructions(): string;
-    get tools(): ToolDefinition[];
-    get tool_choice(): 'auto' | 'none' | 'required' | {
-        type: 'function';
-        name: string;
+    protected getSessionPayload(): {
+        session: any;
     };
-    get temperature(): number;
-    get max_response_output_tokens(): number | 'inf';
-    /**
-     * Updates the client settings
-     */
-    updateSettings(settings: Partial<RealtimeClientSettings$1>): void;
-    /**
-     * Gets the current client settings
-     */
-    getSettings(): RealtimeClientSettings$1;
-    /**
-     * Updates the model configuration
-     */
-    updateModelConfig(updates: Partial<TicosModelConfig>): void;
-    /**
-     * Updates the speech configuration
-     */
-    updateSpeechConfig(updates: Partial<AudioConfig$1>): void;
-    /**
-     * Updates the hearing configuration
-     */
-    updateHearingConfig(updates: Partial<AudioConfig$1>): void;
-    /**
-     * Updates the vision configuration
-     */
-    updateVisionConfig(updates: Partial<TicosConfigOptions['vision']>): void;
-    /**
-     * Updates the knowledge configuration
-     */
-    updateKnowledgeConfig(updates: Partial<TicosConfigOptions['knowledge']>): void;
-    /**
-     * Adds a tool to the configuration
-     */
-    addTool(tool: ToolDefinition): void;
-    /**
-     * Removes a tool from the configuration
-     */
-    removeTool(name: string): void;
-    /**
-     * Gets all registered tools
-     */
-    getTools(): ToolDefinition[];
-    /**
-     * Gets the session payload for WebSocket communication
-     */
-    getSessionPayload(): {
-        session: TicosConfigOptions;
-    };
-    /**
-     * Resets the configuration to default values
-     */
-    reset(): void;
-}
-declare class TicosConfigManager extends ConfigManager {
-    protected config: TicosConfig;
-    constructor();
-    updateConfig(updates: Partial<TicosConfigOptions>): void;
-    getSessionPayload(): {
-        session: TicosConfigOptions;
-    };
-    reset(): void;
-}
-
-/**
- * Configuration interface for the OpenAI Realtime API client.
- * @interface OpenAIConfig
- *
- * @property {string} [apiKey] - OpenAI API key for authentication. Required for non-browser environments.
- * @property {string} [model] - The OpenAI model to use (e.g., 'gpt-4o-realtime-preview-2024-10-01').
- * @property {boolean} [dangerouslyAllowAPIKeyInBrowser] - Whether to allow API key usage in browser environments (not recommended).
- * @property {string[]} [modalities] - Supported interaction modalities (e.g., ['text', 'audio']).
- * @property {string} [instructions] - System instructions for the model.
- * @property {string} [voice] - Voice ID for audio responses (e.g., 'verse').
- * @property {string} [input_audio_format] - Format for audio input (e.g., 'pcm16').
- * @property {string} [output_audio_format] - Format for audio output (e.g., 'pcm16').
- * @property {string | null} [input_audio_transcription] - Transcription settings for audio input.
- * @property {any} [turn_detection] - Configuration for turn-based conversation detection.
- * @property {any[]} [tools] - Array of tool configurations available to the model.
- * @property {string} [tool_choice] - Strategy for tool selection ('auto' | 'none' | specific tool).
- * @property {number} [temperature] - Sampling temperature for model responses (0.0 to 1.0).
- * @property {number} [max_response_output_tokens] - Maximum number of tokens in model responses.
- */
-interface OpenAIConfig {
-    apiKey?: string;
-    model?: string;
-    dangerouslyAllowAPIKeyInBrowser?: boolean;
-    modalities?: string[];
-    instructions?: string;
-    voice?: string;
-    input_audio_format?: string;
-    output_audio_format?: string;
-    input_audio_transcription?: string | null;
-    turn_detection?: any;
-    tools?: any[];
-    tool_choice?: string;
-    temperature?: number;
-    max_response_output_tokens?: number;
-}
-/**
- * Manages configuration settings for the OpenAI Realtime API client.
- * Extends the base ConfigManager to provide OpenAI-specific configuration management.
- *
- * @example
- * ```typescript
- * const config = new OpenAIConfigManager();
- * config.updateConfig({
- *   apiKey: 'your-api-key',
- *   model: 'gpt-4o-realtime-preview-2024-10-01',
- *   temperature: 0.7
- * });
- * ```
- */
-declare class OpenAIConfigManager extends ConfigManager {
-    /** Current configuration state */
-    config: OpenAIConfig;
-    /**
-     * Creates a new OpenAIConfigManager instance with default settings.
-     * Initializes the configuration with sensible defaults for realtime interactions.
-     */
-    constructor();
-    /**
-     * Resets the configuration to default values.
-     * This method is useful when you need to start fresh with default settings.
-     *
-     * @example
-     * ```typescript
-     * config.reset(); // Resets all settings to defaults
-     * ```
-     */
-    reset(): void;
-    /**
-     * Updates the current configuration with new values.
-     * Merges the provided updates with the existing configuration.
-     *
-     * @param {Partial<OpenAIConfig>} updates - Partial configuration object containing only the values to update
-     *
-     * @example
-     * ```typescript
-     * config.updateConfig({
-     *   temperature: 0.9,
-     *   max_response_output_tokens: 2048
-     * });
-     * ```
-     */
-    updateConfig(updates: Partial<OpenAIConfig>): void;
-    /**
-     * Retrieves the current configuration formatted as a session payload.
-     * Used internally by the client to send configuration to the API.
-     *
-     * @returns {{ session: OpenAIConfig }} Configuration wrapped in a session object
-     *
-     * @example
-     * ```typescript
-     * const payload = config.getSessionPayload();
-     * // { session: { temperature: 0.8, ... } }
-     * ```
-     */
-    getSessionPayload(): {
-        session: OpenAIConfig;
-    };
-}
-
-declare class OpenAIRealtimeClient extends RealtimeClient {
-    protected configManager: OpenAIConfigManager;
-    constructor(settings?: RealtimeClientSettings);
-    updateConfig(updates: Partial<OpenAIConfig>): void;
+    updateConfig(updates: any): void;
 }
 
 type OpenaiVoiceType = "alloy" | "ash" | "ballad" | "coral" | "echo" | "sage" | "shimmer" | "verse";
@@ -1143,11 +849,57 @@ interface OpenaiToolDefinition extends ToolDefinition {
 /**
  * OpenAI configuration options
  */
-interface OpenaiConfig extends BaseConfig, AudioConfig {
+interface OpenaiConfig {
+    /** Voice for text-to-speech */
     voice: OpenaiVoiceType;
-    input_audio_transcription: AudioTranscriptionType | null;
-    turn_detection: TurnDetectionServerVadType | null;
+    /** Audio input/output configuration */
+    input_audio_format: string;
+    output_audio_format: string;
+    input_audio_transcription: any | null;
+    turn_detection: any | null;
+    /** Available tools */
     tools: OpenaiToolDefinition[];
+    /** Required system instructions */
+    instructions: string;
+    /** Tool choice strategy */
+    tool_choice: 'auto' | 'none' | 'required' | {
+        type: 'function';
+        name: string;
+    };
+    /** Temperature for response generation */
+    temperature: number;
+    /** Maximum tokens in responses */
+    max_response_output_tokens: number | 'inf';
+}
+
+/**
+ * Configuration for OpenAI Realtime API
+ */
+declare class OpenAIConfig implements BaseConfig {
+    private config;
+    updateConfig(updates: Partial<OpenaiConfig>): void;
+    getSessionPayload(): {
+        session: OpenaiConfig;
+    };
+    reset(): void;
+}
+
+/**
+ * Configuration for Ticos Realtime API
+ */
+declare class TicosConfig implements BaseConfig {
+    private config;
+    private settings;
+    updateSettings(settings: Partial<RealtimeOptions$1>): void;
+    getSettings(): RealtimeOptions$1;
+    updateConfig(updates: Partial<ConfigOptions>): void;
+    addTool(tool: ToolDefinition): void;
+    removeTool(name: string): void;
+    getTools(): ToolDefinition[];
+    getSessionPayload(): {
+        session: ConfigOptions;
+    };
+    reset(): void;
 }
 
 /**
@@ -1176,4 +928,4 @@ declare class RealtimeUtils {
     static generateId(prefix: string, length?: number): string;
 }
 
-export { type AudioConfig$1 as AudioConfig, type AudioContent, type BaseConfig, ConfigManager, type Content, type ContentBase, type ContentType, type ConversationEndEvent, type ConversationStartEvent, type ConversationState, type Event, type EventSource, type ImageContent, type ItemError, type ItemErrorEvent, type ItemEvent, type ItemStatus, type ItemType, type KnowledgeConfig, OpenAIRealtimeClient, type OpenaiConfig, type OpenaiToolDefinition, type OpenaiVoiceType, RealtimeAPI, RealtimeClient, type RealtimeClientSettings$1 as RealtimeClientSettings, RealtimeConversation, RealtimeEventHandler, RealtimeUtils, type SessionUpdateEvent, type TextContent, TicosConfig, TicosConfigManager, type TicosConfigOptions, type TicosModelConfig, type TimestampedEvent, type ToolCallEvent, type ToolDefinition, type ToolRegisterEvent, type ToolRegistration, type ToolResponseEvent, type VisionConfig };
+export { type AudioConfig, type AudioContent, type ConfigOptions, type Content, type ContentBase, type ContentType, type ConversationEndEvent, type ConversationStartEvent, type ConversationState, type Event, type EventSource, type ImageContent, type ItemError, type ItemErrorEvent, type ItemEvent, type ItemStatus, type ItemType, type KnowledgeConfig, type ModelConfig, OpenAIConfig, type OpenaiConfig, type OpenaiToolDefinition, type OpenaiVoiceType, RealtimeAPI, RealtimeClient, RealtimeConversation, RealtimeEventHandler, type RealtimeOptions$1 as RealtimeOptions, RealtimeUtils, type SessionUpdateEvent, type TextContent, TicosConfig, type TimestampedEvent, type ToolCallEvent, type ToolDefinition, type ToolRegisterEvent, type ToolRegistration, type ToolResponseEvent, type VisionConfig };

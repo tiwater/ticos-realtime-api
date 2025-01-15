@@ -1,31 +1,12 @@
 import { RealtimeEventHandler } from './event-handler';
 import { RealtimeAPI } from './api';
 import { RealtimeConversation } from './conversation';
-import type { ItemType, ToolDefinition } from './types';
-import { ConfigManager } from './config/base';
-
-/**
- * Configuration settings for initializing the Realtime Client.
- * 
- * @interface RealtimeClientSettings
- * @property {string} [url] - WebSocket endpoint URL. Defaults to the API's default URL.
- * @property {string} [apiKey] - API key for authentication. Required for non-browser environments.
- * @property {boolean} [dangerouslyAllowAPIKeyInBrowser] - Whether to allow API key usage in browser (not recommended).
- * @property {boolean} [debug] - Enable debug logging of WebSocket communication.
- */
-export interface RealtimeClientSettings {
-  url?: string;
-  apiKey?: string;
-  dangerouslyAllowAPIKeyInBrowser?: boolean;
-  debug?: boolean;
-}
+import type { ToolDefinition, BaseConfig } from './types/client';
+import type { ItemType } from './types/conversation';
+import type { ClientOptions } from './types/client';
 
 /**
  * Event interface for conversation updates.
- * 
- * @interface ConversationUpdateEvent
- * @property {ItemType} item - The conversation item being updated
- * @property {any} delta - The changes made to the item
  */
 interface ConversationUpdateEvent {
   item: ItemType;
@@ -36,40 +17,22 @@ interface ConversationUpdateEvent {
  * High-level client for the Realtime API that manages conversations and tools.
  * Provides an interface for connecting to the API, managing conversations,
  * and handling tool registrations and executions.
- * 
- * @extends {RealtimeEventHandler}
- * 
- * @example
- * ```typescript
- * const client = new RealtimeClient({
- *   apiKey: 'your-api-key',
- *   debug: true
- * });
- * 
- * await client.connect();
- * client.registerTool({
- *   name: 'greet',
- *   description: 'Greets a person'
- * }, (args) => `Hello, ${args.name}!`);
- * ```
  */
 export class RealtimeClient extends RealtimeEventHandler {
-  /** Configuration manager instance */
-  protected configManager!: ConfigManager;
-  /** Low-level API client instance */
+  protected config: BaseConfig;
   protected realtime: RealtimeAPI;
-  /** Conversation manager instance */
   protected conversation: RealtimeConversation;
-  /** Map of registered tools and their handlers */
   protected tools: Record<string, { definition: ToolDefinition; handler: Function }> = {};
 
   /**
    * Creates a new RealtimeClient instance.
    * 
-   * @param {RealtimeClientSettings} settings - Configuration settings for the client
+   * @param {ClientOptions} settings - Configuration settings for the client
+   * @param {BaseConfig} config - Configuration instance
    */
-  constructor(settings: RealtimeClientSettings = {}) {
+  constructor(settings: ClientOptions = { url: 'wss://api.ticos.ai/v1/realtime', apiKey: '' }, config: BaseConfig) {
     super();
+    this.config = config;
     this.realtime = new RealtimeAPI(settings);
     this.conversation = new RealtimeConversation();
     this._addAPIEventHandlers();
@@ -145,7 +108,7 @@ export class RealtimeClient extends RealtimeEventHandler {
    */
   protected updateSession(): void {
     if (this.isConnected()) {
-      const payload = this.configManager.getSessionPayload();
+      const payload = this.getSessionPayload();
       this.realtime.send('session.update', payload);
     }
   }
@@ -160,8 +123,8 @@ export class RealtimeClient extends RealtimeEventHandler {
    * ```
    */
   public reset(): void {
-    this.configManager.reset();
     this.tools = {};
+    this.config.reset();
     this.updateSession();
   }
 
@@ -275,5 +238,14 @@ export class RealtimeClient extends RealtimeEventHandler {
     const event = await this.waitForNext('conversation.item.completed');
     if (!event) return { item: null };
     return { item: event.item as ItemType };
+  }
+
+  protected getSessionPayload(): { session: any } {
+    return this.config.getSessionPayload();
+  }
+
+  public updateConfig(updates: any): void {
+    this.config.updateConfig(updates);
+    this.updateSession();
   }
 } 

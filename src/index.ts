@@ -1,12 +1,12 @@
 // Core types
 export {
   // Client types
-  RealtimeClientSettings,
+  ClientOptions,
   ToolDefinition,
   ToolRegistration,
   // Config types
-  TicosConfigOptions,
-  TicosModelConfig,
+  RealtimeConfig,
+  ModelConfig,
   AudioConfig,
   VisionConfig,
   KnowledgeConfig,
@@ -25,11 +25,10 @@ export * from './conversation';
 export * from './event-handler';
 
 // Configuration
-export * from './config/base';
+export * from './config/openai';
 export * from './config/ticos';
 
-// Provider implementations
-export * from './openai/client';
+// Provider types
 export * from './openai/types';
 
 // Utilities

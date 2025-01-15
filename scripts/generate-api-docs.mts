@@ -59,18 +59,18 @@ await conversation.sendMessage('Hello!');
 ## Authentication
 All connections require an API key that should be passed in the Authorization header.
     `,
-  },
-  servers: [
-    {
+    },
+    servers: [
+      {
       url: 'wss://api.ticos.ai/v1/realtime',
       description: 'Production WebSocket endpoint',
     },
     {
       url: 'wss://api.staging.ticos.ai/v1/realtime',
       description: 'Staging WebSocket endpoint',
-    },
-  ],
-  components: {
+      },
+    ],
+    components: {
     schemas: {
       RealtimeClientSettings: {
         type: 'object',
@@ -80,9 +80,9 @@ All connections require an API key that should be passed in the Authorization he
             description: 'WebSocket endpoint URL',
             example: 'wss://api.ticos.ai/v1/realtime',
           },
-          apiKey: {
+        apiKey: {
             type: 'string',
-            description: 'API key for authentication',
+          description: 'API key for authentication',
             example: 'sk_ticos_xxxxxxxxxxxx',
           },
           dangerouslyAllowAPIKeyInBrowser: {
@@ -431,34 +431,34 @@ await conversation.sendMessage({
       },
     },
     'x-websocket-events': {
-      'client.*': {
-        description: 'All client-side events',
-        payload: {
-          type: 'object',
-          properties: {
-            event_id: { type: 'string' },
-            type: { type: 'string' },
-          },
+    'client.*': {
+      description: 'All client-side events',
+      payload: {
+        type: 'object',
+        properties: {
+          event_id: { type: 'string' },
+          type: { type: 'string' },
         },
       },
-      'server.*': {
-        description: 'All server-side events',
-        payload: {
-          type: 'object',
-          properties: {
-            type: { type: 'string' },
-          },
+    },
+    'server.*': {
+      description: 'All server-side events',
+      payload: {
+        type: 'object',
+        properties: {
+          type: { type: 'string' },
         },
       },
-      'session.update': {
-        description: 'Update session configuration',
-        payload: {
-          type: 'object',
-          properties: {
-            session: { $ref: '#/components/schemas/RealtimeClientSettings' },
-          },
+    },
+    'session.update': {
+      description: 'Update session configuration',
+      payload: {
+        type: 'object',
+        properties: {
+          session: { $ref: '#/components/schemas/RealtimeClientSettings' },
         },
       },
+    },
       'conversation.start': {
         description: 'Start a new conversation',
         payload: {
@@ -492,24 +492,24 @@ await conversation.sendMessage({
           },
         },
       },
-      'conversation.item.appended': {
-        description: 'New item added to conversation',
-        payload: {
-          type: 'object',
-          properties: {
-            item: { $ref: '#/components/schemas/ItemType' },
-          },
+    'conversation.item.appended': {
+      description: 'New item added to conversation',
+      payload: {
+        type: 'object',
+        properties: {
+          item: { $ref: '#/components/schemas/ItemType' },
         },
       },
-      'conversation.item.completed': {
-        description: 'Conversation item completed',
-        payload: {
-          type: 'object',
-          properties: {
-            item: { $ref: '#/components/schemas/ItemType' },
-          },
+    },
+    'conversation.item.completed': {
+      description: 'Conversation item completed',
+      payload: {
+        type: 'object',
+        properties: {
+          item: { $ref: '#/components/schemas/ItemType' },
         },
       },
+    },
       'conversation.item.error': {
         description: 'Error occurred while processing conversation item',
         payload: {
@@ -672,19 +672,19 @@ await client.api.registerTool({
   ],
 };
 
-// Create docs directory if it doesn't exist
-if (!fs.existsSync('docs')) {
-  fs.mkdirSync('docs');
-}
+  // Create docs directory if it doesn't exist
+  if (!fs.existsSync('docs')) {
+    fs.mkdirSync('docs');
+  }
 
-// Write the OpenAPI specification to a file
-fs.writeFileSync(
-  'docs/openapi.json',
-  JSON.stringify(openApiSpec, null, 2)
-);
+  // Write the OpenAPI specification to a file
+  fs.writeFileSync(
+    'docs/openapi.json',
+    JSON.stringify(openApiSpec, null, 2)
+  );
 
-// Generate HTML documentation using Redoc
-const redocHTML = `
+  // Generate HTML documentation using Redoc
+  const redocHTML = `
 <!DOCTYPE html>
 <html>
   <head>
@@ -706,10 +706,10 @@ const redocHTML = `
 </html>
 `;
 
-// Write the HTML file
-fs.writeFileSync('docs/index.html', redocHTML);
+  // Write the HTML file
+  fs.writeFileSync('docs/index.html', redocHTML);
 
-console.log('✨ Generated OpenAPI documentation in docs/');
+  console.log('✨ Generated OpenAPI documentation in docs/');
 
 // Generate JSON Schema from TypeScript types
 const program = TJS.getProgramFromFiles(

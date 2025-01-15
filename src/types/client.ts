@@ -1,7 +1,7 @@
 /**
- * Configuration options for the RealtimeClient
+ * Configuration options for initializing the client
  */
-export interface RealtimeClientSettings {
+export interface ClientOptions {
   /** WebSocket endpoint URL */
   url: string;
   /** API key for authentication */
@@ -66,7 +66,7 @@ export interface ToolRegistration {
 /**
  * Model configuration settings
  */
-export interface TicosModelConfig {
+export interface ModelConfig {
   /** Model provider (e.g., 'tiwater') */
   provider: string;
   /** Model name (e.g., 'stardust-2.5-turbo') */
@@ -183,11 +183,11 @@ export interface FunctionResponse {
 }
 
 /**
- * Complete Ticos configuration
+ * Complete configuration
  */
-export interface TicosConfigOptions {
+export interface RealtimeConfig {
   /** Model configuration */
-  model: TicosModelConfig;
+  model: ModelConfig;
   /** Speech configuration */
   speech: Partial<AudioConfig>;
   /** Hearing configuration */
@@ -201,7 +201,7 @@ export interface TicosConfigOptions {
 /**
  * Audio transcription configuration
  */
-export type AudioTranscriptionType = {
+export type AudioTranscription = {
   provider: string;
   language?: string;
   model?: string;
@@ -210,8 +210,20 @@ export type AudioTranscriptionType = {
 /**
  * Turn detection configuration using server VAD
  */
-export type TurnDetectionServerVadType = {
+export type TurnDetectionServerVad = {
   provider: string;
   min_silence_duration?: number;
   silence_threshold?: number;
-}; 
+};
+
+/**
+ * Base configuration interface that all provider configs must implement
+ */
+export interface BaseConfig {
+  /** Get session payload for the server */
+  getSessionPayload(): { session: any };
+  /** Update configuration with partial updates */
+  updateConfig(updates: any): void;
+  /** Reset configuration to defaults */
+  reset(): void;
+} 
