@@ -489,9 +489,9 @@ await conversation.sendMessage({
               enum: ['completed', 'timeout', 'error'],
               example: 'completed',
             },
-          },
         },
       },
+    },
     'conversation.item.appended': {
       description: 'New item added to conversation',
       payload: {

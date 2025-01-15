@@ -1,3 +1,7 @@
+import { ItemType, Content } from './conversation';
+
+export { ItemType, Content };
+
 /**
  * Configuration options for initializing the client
  */
@@ -55,6 +59,17 @@ export interface ToolDefinition {
   platform: "linux" | "macos" | "windows";
 }
 
+export interface BaseConfig {
+  /** Get session payload */
+  getSessionPayload(): { session: any };
+  /** Update configuration */
+  updateConfig(updates: any): void;
+  /** Reset configuration to defaults */
+  reset(): void;
+  /** Get turn detection type */
+  getTurnDetectionType(): string | null;
+}
+
 /**
  * Tool registration type combining definition and handler
  */
@@ -74,15 +89,15 @@ export interface ModelConfig {
   /** Supported modalities */
   modalities: string[];
   /** System instructions */
-  instructions: string;
+  instructions?: string;
   /** Available tools */
-  tools: ToolDefinition[];
+  tools?: ToolDefinition[];
   /** Tool choice strategy */
-  tool_choice: 'auto' | 'none' | 'required' | { type: 'function'; name: string };
+  tool_choice?: 'auto' | 'none' | 'required' | { type: 'function'; name: string };
   /** Temperature for response generation */
-  temperature: number;
+  temperature?: number;
   /** Maximum tokens in responses */
-  max_response_output_tokens: number | 'inf';
+  max_response_output_tokens?: number | 'inf';
 }
 
 /**
@@ -196,34 +211,4 @@ export interface RealtimeConfig {
   vision?: VisionConfig;
   /** Knowledge configuration */
   knowledge?: KnowledgeConfig;
-}
-
-/**
- * Audio transcription configuration
- */
-export type AudioTranscription = {
-  provider: string;
-  language?: string;
-  model?: string;
-};
-
-/**
- * Turn detection configuration using server VAD
- */
-export type TurnDetectionServerVad = {
-  provider: string;
-  min_silence_duration?: number;
-  silence_threshold?: number;
-};
-
-/**
- * Base configuration interface that all provider configs must implement
- */
-export interface BaseConfig {
-  /** Get session payload for the server */
-  getSessionPayload(): { session: any };
-  /** Update configuration with partial updates */
-  updateConfig(updates: any): void;
-  /** Reset configuration to defaults */
-  reset(): void;
 } 

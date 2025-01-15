@@ -59,10 +59,10 @@ export interface ItemError {
  */
 export interface ItemType {
   id: string;
-  type: 'text' | 'audio' | 'image' | 'tool_call' | 'tool_response';
+  type: 'message' | 'text' | 'audio' | 'image' | 'tool_call' | 'tool_response';
+  role?: 'user' | 'assistant';
   content: Content[];
-  status: ItemStatus;
-  error?: ItemError;
+  status?: 'completed' | 'incomplete';
 }
 
 /**

@@ -1,9 +1,9 @@
 import { RealtimeEventHandler } from './event-handler';
 import { RealtimeAPI } from './api';
 import { RealtimeConversation } from './conversation';
-import type { ToolDefinition, BaseConfig } from './types/client';
-import type { ItemType } from './types/conversation';
-import type { ClientOptions } from './types/client';
+import type { BaseConfig, ClientOptions, ToolDefinition } from './types/client';  
+import type { ItemType, Content } from './types/conversation';
+import { RealtimeUtils } from './utils';
 
 /**
  * Event interface for conversation updates.
@@ -23,6 +23,7 @@ export class RealtimeClient extends RealtimeEventHandler {
   protected realtime: RealtimeAPI;
   protected conversation: RealtimeConversation;
   protected tools: Record<string, { definition: ToolDefinition; handler: Function }> = {};
+  protected inputAudioBuffer: Int16Array = new Int16Array(0);
 
   /**
    * Creates a new RealtimeClient instance.
@@ -247,5 +248,111 @@ export class RealtimeClient extends RealtimeEventHandler {
   public updateConfig(updates: any): void {
     this.config.updateConfig(updates);
     this.updateSession();
+  }
+
+  /**
+   * Sends user message content and generates a response
+   * @param {Array<Content>} content - Array of content to send (text, audio, etc.)
+   * @returns {boolean} Always returns true
+   */
+  public sendUserMessageContent(content: Content[] = []): boolean {
+    if (content.length) {
+      for (const c of content) {
+        if (c.type === 'audio' && typeof c.audio !== 'string') {
+          c.audio = RealtimeUtils.arrayBufferToBase64(c.audio);
+        }
+      }
+      this.realtime.send('conversation.item.create', {
+        item: {
+          type: 'message',
+          role: 'user',
+          content,
+        },
+      });
+    }
+    this.createResponse();
+    return true;
+  }
+
+  /**
+   * Appends user audio to the existing audio buffer
+   * @param {Int16Array | ArrayBuffer} arrayBuffer - Audio data to append
+   * @returns {boolean} Always returns true
+   */
+  public appendInputAudio(arrayBuffer: Int16Array | ArrayBuffer): boolean {
+    if (arrayBuffer.byteLength > 0) {
+      this.realtime.send('input_audio_buffer.append', {
+        audio: RealtimeUtils.arrayBufferToBase64(arrayBuffer),
+      });
+      this.inputAudioBuffer = RealtimeUtils.mergeInt16Arrays(
+        this.inputAudioBuffer,
+        arrayBuffer,
+      );
+    }
+    return true;
+  }
+
+  /**
+   * Forces a model response generation
+   * @returns {boolean} Always returns true
+   */
+  public createResponse(): boolean {
+    if (
+      this.config.getTurnDetectionType() === null &&
+      this.inputAudioBuffer.byteLength > 0
+    ) {
+      this.realtime.send('input_audio_buffer.commit');
+      this.conversation.queueInputAudio(this.inputAudioBuffer);
+      this.inputAudioBuffer = new Int16Array(0);
+    }
+    this.realtime.send('response.create');
+    return true;
+  }
+
+  /**
+   * Cancels the ongoing server generation and truncates ongoing generation, if applicable
+   * If no id provided, will simply call `cancel_generation` command
+   * @param {string} id - The id of the message to cancel
+   * @param {number} [sampleCount=0] - The number of samples to truncate past for the ongoing generation
+   * @returns {{ item: ItemType | null }} The canceled item or null
+   */
+  public cancelResponse(id: string, sampleCount: number = 0): { item: ItemType | null } {
+    if (!id) {
+      this.realtime.send('response.cancel');
+      return { item: null };
+    } else {
+      const item = this.getConversationItem(id);
+      if (!item) {
+        throw new Error(`Could not find item "${id}"`);
+      }
+      if (item.type !== 'message') {
+        throw new Error(`Can only cancelResponse messages with type "message"`);
+      } else if (item.role !== 'assistant') {
+        throw new Error(`Can only cancelResponse messages with role "assistant"`);
+      }
+      this.realtime.send('response.cancel');
+      const audioIndex = item.content.findIndex((c) => c.type === 'audio');
+      if (audioIndex === -1) {
+        throw new Error(`Could not find audio on item to cancel`);
+      }
+      this.realtime.send('conversation.item.truncate', {
+        item_id: id,
+        content_index: audioIndex,
+        audio_end_ms: Math.floor(
+          (sampleCount / this.conversation.defaultFrequency) * 1000,
+        ),
+      });
+      return { item };
+    }
+  }
+
+  /**
+   * Gets an item from the conversation by ID
+   * @private
+   * @param {string} id - Item ID to find
+   * @returns {ItemType | undefined} The found item or undefined
+   */
+  private getConversationItem(id: string): ItemType | undefined {
+    return this.conversation.getItems().find(item => item.id === id);
   }
 } 

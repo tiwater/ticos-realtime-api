@@ -1,9 +1,77 @@
 import { WebSocket as WebSocket$1 } from 'ws';
 
 /**
- * Configuration options for the RealtimeClient
+ * Types of content that can be sent in a message
  */
-interface RealtimeOptions$1 {
+type ContentType = 'text' | 'audio' | 'image';
+/**
+ * Status of a conversation item
+ */
+type ItemStatus = 'pending' | 'completed' | 'error';
+/**
+ * Base content interface for messages
+ */
+interface ContentBase {
+    type: ContentType;
+}
+/**
+ * Text content in a message
+ */
+interface TextContent extends ContentBase {
+    type: 'text';
+    text: string;
+}
+/**
+ * Audio content in a message
+ */
+interface AudioContent extends ContentBase {
+    type: 'audio';
+    audio: string;
+    transcript?: string;
+}
+/**
+ * Image content in a message
+ */
+interface ImageContent extends ContentBase {
+    type: 'image';
+    image: string;
+    caption?: string;
+}
+/**
+ * Union type for all possible content types
+ */
+type Content = TextContent | AudioContent | ImageContent;
+/**
+ * Error information for items with error status
+ */
+interface ItemError {
+    code: string;
+    message: string;
+}
+/**
+ * Base item type for conversation items
+ */
+interface ItemType {
+    id: string;
+    type: 'message' | 'text' | 'audio' | 'image' | 'tool_call' | 'tool_response';
+    role?: 'user' | 'assistant';
+    content: Content[];
+    status?: 'completed' | 'incomplete';
+}
+/**
+ * Conversation state type
+ */
+interface ConversationState {
+    id: string;
+    items: ItemType[];
+    status: 'active' | 'completed' | 'error';
+    metadata?: Record<string, any>;
+}
+
+/**
+ * Configuration options for initializing the client
+ */
+interface ClientOptions {
     /** WebSocket endpoint URL */
     url: string;
     /** API key for authentication */
@@ -53,6 +121,18 @@ interface ToolDefinition {
     language: "python" | "shell";
     /** Operating system platform */
     platform: "linux" | "macos" | "windows";
+}
+interface BaseConfig {
+    /** Get session payload */
+    getSessionPayload(): {
+        session: any;
+    };
+    /** Update configuration */
+    updateConfig(updates: any): void;
+    /** Reset configuration to defaults */
+    reset(): void;
+    /** Get turn detection type */
+    getTurnDetectionType(): string | null;
 }
 /**
  * Tool registration type combining definition and handler
@@ -177,7 +257,7 @@ interface FunctionResponse {
 /**
  * Complete configuration
  */
-interface ConfigOptions {
+interface RealtimeConfig {
     /** Model configuration */
     model: ModelConfig;
     /** Speech configuration */
@@ -188,87 +268,6 @@ interface ConfigOptions {
     vision?: VisionConfig;
     /** Knowledge configuration */
     knowledge?: KnowledgeConfig;
-}
-/**
- * Base configuration interface that all provider configs must implement
- */
-interface BaseConfig {
-    /** Get session payload for the server */
-    getSessionPayload(): {
-        session: any;
-    };
-    /** Update configuration with partial updates */
-    updateConfig(updates: any): void;
-    /** Reset configuration to defaults */
-    reset(): void;
-}
-
-/**
- * Types of content that can be sent in a message
- */
-type ContentType = 'text' | 'audio' | 'image';
-/**
- * Status of a conversation item
- */
-type ItemStatus = 'pending' | 'completed' | 'error';
-/**
- * Base content interface for messages
- */
-interface ContentBase {
-    type: ContentType;
-}
-/**
- * Text content in a message
- */
-interface TextContent extends ContentBase {
-    type: 'text';
-    text: string;
-}
-/**
- * Audio content in a message
- */
-interface AudioContent extends ContentBase {
-    type: 'audio';
-    audio: string;
-    transcript?: string;
-}
-/**
- * Image content in a message
- */
-interface ImageContent extends ContentBase {
-    type: 'image';
-    image: string;
-    caption?: string;
-}
-/**
- * Union type for all possible content types
- */
-type Content = TextContent | AudioContent | ImageContent;
-/**
- * Error information for items with error status
- */
-interface ItemError {
-    code: string;
-    message: string;
-}
-/**
- * Base item type for conversation items
- */
-interface ItemType {
-    id: string;
-    type: 'text' | 'audio' | 'image' | 'tool_call' | 'tool_response';
-    content: Content[];
-    status: ItemStatus;
-    error?: ItemError;
-}
-/**
- * Conversation state type
- */
-interface ConversationState {
-    id: string;
-    items: ItemType[];
-    status: 'active' | 'completed' | 'error';
-    metadata?: Record<string, any>;
 }
 
 /**
@@ -293,7 +292,7 @@ interface TimestampedEvent {
  * Session update event payload
  */
 interface SessionUpdateEvent extends Event {
-    session: RealtimeOptions$1;
+    session: RealtimeConfig;
 }
 /**
  * Conversation start event payload
@@ -428,21 +427,6 @@ declare class RealtimeEventHandler {
 /** Type alias for WebSocket instances that works in both Node.js and browser environments */
 type WebSocketType = WebSocket$1 | WebSocket;
 /**
- * Configuration settings for initializing the Realtime API client.
- *
- * @interface RealtimeOptions
- * @property {string} [url] - WebSocket endpoint URL. Defaults to OpenAI's realtime API endpoint.
- * @property {string} [apiKey] - API key for authentication. Required for non-browser environments.
- * @property {boolean} [dangerouslyAllowAPIKeyInBrowser] - Whether to allow API key usage in browser (not recommended).
- * @property {boolean} [debug] - Enable debug logging of WebSocket communication.
- */
-interface RealtimeOptions {
-    url?: string;
-    apiKey?: string;
-    dangerouslyAllowAPIKeyInBrowser?: boolean;
-    debug?: boolean;
-}
-/**
  * Main client for interacting with the Realtime API.
  * Provides WebSocket-based communication with real-time capabilities.
  *
@@ -473,10 +457,10 @@ declare class RealtimeAPI extends RealtimeEventHandler {
     /**
      * Creates a new RealtimeAPI instance.
      *
-     * @param {RealtimeAPISettings} settings - Configuration settings for the client
+     * @param {ClientOptions} settings - Configuration settings for the client
      * @throws {Error} If API key is provided in browser without explicit permission
      */
-    constructor(settings?: RealtimeOptions);
+    constructor(settings?: ClientOptions);
     /**
      * Checks if the client is currently connected to the WebSocket server.
      *
@@ -690,13 +674,14 @@ declare class RealtimeClient extends RealtimeEventHandler {
         definition: ToolDefinition;
         handler: Function;
     }>;
+    protected inputAudioBuffer: Int16Array;
     /**
      * Creates a new RealtimeClient instance.
      *
-     * @param {RealtimeOptions} settings - Configuration settings for the client
+     * @param {ClientOptions} settings - Configuration settings for the client
      * @param {BaseConfig} config - Configuration instance
      */
-    constructor(settings: RealtimeOptions$1 | undefined, config: BaseConfig);
+    constructor(settings: ClientOptions | undefined, config: BaseConfig);
     /**
      * Sets up event handlers for the API client.
      * Forwards all events to the client's event system with additional metadata.
@@ -836,6 +821,40 @@ declare class RealtimeClient extends RealtimeEventHandler {
         session: any;
     };
     updateConfig(updates: any): void;
+    /**
+     * Sends user message content and generates a response
+     * @param {Array<Content>} content - Array of content to send (text, audio, etc.)
+     * @returns {boolean} Always returns true
+     */
+    sendUserMessageContent(content?: Content[]): boolean;
+    /**
+     * Appends user audio to the existing audio buffer
+     * @param {Int16Array | ArrayBuffer} arrayBuffer - Audio data to append
+     * @returns {boolean} Always returns true
+     */
+    appendInputAudio(arrayBuffer: Int16Array | ArrayBuffer): boolean;
+    /**
+     * Forces a model response generation
+     * @returns {boolean} Always returns true
+     */
+    createResponse(): boolean;
+    /**
+     * Cancels the ongoing server generation and truncates ongoing generation, if applicable
+     * If no id provided, will simply call `cancel_generation` command
+     * @param {string} id - The id of the message to cancel
+     * @param {number} [sampleCount=0] - The number of samples to truncate past for the ongoing generation
+     * @returns {{ item: ItemType | null }} The canceled item or null
+     */
+    cancelResponse(id: string, sampleCount?: number): {
+        item: ItemType | null;
+    };
+    /**
+     * Gets an item from the conversation by ID
+     * @private
+     * @param {string} id - Item ID to find
+     * @returns {ItemType | undefined} The found item or undefined
+     */
+    private getConversationItem;
 }
 
 type OpenaiVoiceType = "alloy" | "ash" | "ballad" | "coral" | "echo" | "sage" | "shimmer" | "verse";
@@ -882,6 +901,7 @@ declare class OpenAIConfig implements BaseConfig {
         session: OpenaiConfig;
     };
     reset(): void;
+    getTurnDetectionType(): string | null;
 }
 
 /**
@@ -890,16 +910,17 @@ declare class OpenAIConfig implements BaseConfig {
 declare class TicosConfig implements BaseConfig {
     private config;
     private settings;
-    updateSettings(settings: Partial<RealtimeOptions$1>): void;
-    getSettings(): RealtimeOptions$1;
-    updateConfig(updates: Partial<ConfigOptions>): void;
+    updateSettings(settings: Partial<ClientOptions>): void;
+    getSettings(): ClientOptions;
+    updateConfig(updates: Partial<RealtimeConfig>): void;
     addTool(tool: ToolDefinition): void;
     removeTool(name: string): void;
     getTools(): ToolDefinition[];
     getSessionPayload(): {
-        session: ConfigOptions;
+        session: RealtimeConfig;
     };
     reset(): void;
+    getTurnDetectionType(): string | null;
 }
 
 /**
@@ -928,4 +949,4 @@ declare class RealtimeUtils {
     static generateId(prefix: string, length?: number): string;
 }
 
-export { type AudioConfig, type AudioContent, type ConfigOptions, type Content, type ContentBase, type ContentType, type ConversationEndEvent, type ConversationStartEvent, type ConversationState, type Event, type EventSource, type ImageContent, type ItemError, type ItemErrorEvent, type ItemEvent, type ItemStatus, type ItemType, type KnowledgeConfig, type ModelConfig, OpenAIConfig, type OpenaiConfig, type OpenaiToolDefinition, type OpenaiVoiceType, RealtimeAPI, RealtimeClient, RealtimeConversation, RealtimeEventHandler, type RealtimeOptions$1 as RealtimeOptions, RealtimeUtils, type SessionUpdateEvent, type TextContent, TicosConfig, type TimestampedEvent, type ToolCallEvent, type ToolDefinition, type ToolRegisterEvent, type ToolRegistration, type ToolResponseEvent, type VisionConfig };
+export { type AudioConfig, type AudioContent, type ClientOptions, type Content, type ContentBase, type ContentType, type ConversationEndEvent, type ConversationStartEvent, type ConversationState, type Event, type EventSource, type ImageContent, type ItemError, type ItemErrorEvent, type ItemEvent, type ItemStatus, type ItemType, type KnowledgeConfig, type ModelConfig, OpenAIConfig, type OpenaiConfig, type OpenaiToolDefinition, type OpenaiVoiceType, RealtimeAPI, RealtimeClient, type RealtimeConfig, RealtimeConversation, RealtimeEventHandler, RealtimeUtils, type SessionUpdateEvent, type TextContent, TicosConfig, type TimestampedEvent, type ToolCallEvent, type ToolDefinition, type ToolRegisterEvent, type ToolRegistration, type ToolResponseEvent, type VisionConfig };

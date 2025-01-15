@@ -1,11 +1,11 @@
 import type { OpenaiConfig } from '../openai/types';
-import type { ConfigManager } from '../client';
+import type { BaseConfig } from '../types/client';
 
 /**
- * Configuration manager for OpenAI Realtime API
+ * Configuration for OpenAI Realtime API
  */
-export class OpenAIConfigManager implements ConfigManager {
-  protected config: OpenaiConfig = {
+export class OpenAIConfig implements BaseConfig {
+  private config: OpenaiConfig = {
     instructions: '',
     tools: [],
     tool_choice: 'auto',
@@ -44,5 +44,9 @@ export class OpenAIConfigManager implements ConfigManager {
       input_audio_transcription: null,
       turn_detection: null,
     };
+  }
+
+  public getTurnDetectionType(): string | null {
+    return this.config.turn_detection || null;
   }
 } 

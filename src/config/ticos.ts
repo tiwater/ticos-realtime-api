@@ -40,6 +40,10 @@ export class TicosConfig implements BaseConfig {
     apiKey: '',
   };
 
+  constructor(config: RealtimeConfig) {
+    this.config = config;
+  }
+
   public updateSettings(settings: Partial<ClientOptions>): void {
     this.settings = {
       ...this.settings,
@@ -85,15 +89,15 @@ export class TicosConfig implements BaseConfig {
   }
 
   public addTool(tool: ToolDefinition): void {
-    this.config.model.tools.push(tool);
+    this.config.model.tools = [...(this.config.model?.tools || []), tool];
   }
 
   public removeTool(name: string): void {
-    this.config.model.tools = this.config.model.tools.filter((tool: ToolDefinition) => tool.name !== name);
+    this.config.model.tools = this.config.model?.tools?.filter((tool: ToolDefinition) => tool.name !== name) || [];
   }
 
   public getTools(): ToolDefinition[] {
-    return [...this.config.model.tools];
+    return [...this.config.model?.tools || []];
   }
 
   public getSessionPayload(): { session: RealtimeConfig } {
@@ -138,5 +142,9 @@ export class TicosConfig implements BaseConfig {
       url: 'wss://api.ticos.ai/v1/realtime',
       apiKey: '',
     };
+  }
+
+  public getTurnDetectionType(): string | null {
+    return this.config.hearing?.turn_detection || null;
   }
 } 
