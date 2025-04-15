@@ -1,7 +1,7 @@
 {
   "name": "@ticos/realtime-api",
-  "version": "0.1.1",
-  "description": "Official Realtime API SDK for Ticos",
+  "version": "0.3.1",
+  "description": "Official SDK for Ticos Realtime API",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -10,17 +10,19 @@
   ],
   "scripts": {
     "prebuild": "rimraf dist",
-    "build": "tsc && tsup src/index.ts --format cjs,esm --dts",
+    "build": "tsc --noEmit && tsup",
     "dev": "tsup --watch",
     "clean": "rimraf dist",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\"",
     "format": "prettier --write \"src/**/*.ts\"",
-    "test": "mocha -r ts-node/register 'tests/**/*.test.ts'",
+    "test": "vitest run",
     "docs:generate": "NODE_OPTIONS='--loader ts-node/esm' ts-node --project scripts/tsconfig.json scripts/generate-api-docs.mts",
     "docs:serve": "serve docs",
-    "docs": "pnpm docs:generate && pnpm docs:serve",
-    "prepare": "pnpm build"
+    "documentation": "pnpm docs:generate && pnpm docs:serve",
+    "prepare": "pnpm build",
+    "prepublishOnly": "pnpm lint && pnpm test && pnpm build",
+    "publish": "pnpm publish"
   },
   "author": "Tiwater <hi@tiwater.com>",
   "license": "MIT",
@@ -49,6 +51,7 @@
     "tsx": "^4.19.2",
     "typescript": "^5.3.3",
     "typescript-json-schema": "^0.65.1",
+    "vitest": "^3.1.1",
     "websocket": "^1.0.35"
   },
   "type": "module",

@@ -1,6 +1,5 @@
 # Build output
 dist/
-lib/
 
 # Dependencies
 node_modules/
@@ -23,3 +22,4 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+

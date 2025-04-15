@@ -28,3 +28,6 @@ coverage/
 # Misc
 *.tgz
 .DS_Store
+Thumbs.db
+
+.windsurfrules

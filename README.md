@@ -11,153 +11,162 @@ Official WebSocket-based Realtime API SDK for Ticos. This SDK provides real-time
 - 💬 Conversation state tracking
 - 📦 TypeScript support out of the box
 
-## Installation
+## Quick Start
+
+The fastest way to see the SDK in action is to run the demo project:
 
 ```bash
+# Clone the repository
+git clone https://github.com/tiwater/ticos-realtime-api.git
+cd ticos-realtime-api
+
+# Install dependencies
+pnpm install
+
+# Build the SDK
+pnpm build
+
+# Navigate to the demo project
+cd examples/realtime-chat-demo
+
+# Install demo dependencies
+pnpm install
+
+# Create a .env.local file with your API key
+echo "NEXT_PUBLIC_TICOS_API_KEY=your_api_key_here" > .env.local
+echo "NEXT_PUBLIC_TICOS_API_URL=wss://stardust.ticos.cn/realtime" >> .env.local
+
+# Start the demo
+pnpm dev
+```
+
+Then open [http://localhost:3000](http://localhost:3000) with your browser to see the chat demo in action.
+
+## Installation
+
+To use the SDK in your own project:
+
+```bash
+# Using pnpm (recommended)
+pnpm add @ticos/realtime-api
+
 # Using npm
 npm install @ticos/realtime-api
-
-# Using pnpm
-pnpm add @ticos/realtime-api
 
 # Using yarn
 yarn add @ticos/realtime-api
 ```
 
-## Quick Start
+## Basic Usage
 
 ```typescript
 import { RealtimeClient } from '@ticos/realtime-api';
 
 // Initialize the client
-const client = new RealtimeClient({
-  url: 'wss://api.ticos.ai/v1/realtime',
-  apiKey: 'YOUR_API_KEY',
-});
+const client = new RealtimeClient();
 
-// Connect to the server
+// Connect to the Ticos Realtime API
 await client.connect();
 
 // Create a conversation
 const conversation = await client.createConversation();
 
 // Send a message
-await conversation.sendMessage('Hello!');
+await conversation.sendMessage('Hello, Ticos!');
 
-// Listen for responses
-conversation.on('item.appended', (item) => {
-  if (item.type === 'text') {
-    console.log('Received:', item.content[0].text);
-  }
+// Register event handlers
+client.on('message', (event) => {
+  console.log('Received message:', event);
 });
 ```
 
-## Core Classes
+## SDK Structure
 
-### RealtimeClient
+The SDK is organized into the following structure:
 
-The main client class for interacting with the Ticos Realtime API.
+1. `/src/core/` - Core functionality
+   - `client.ts` - Main client class
+   - `realtime.ts` - Realtime API communication
+   - `conversation.ts` - Conversation management
+   - `event-handler.ts` - Event handling system
 
-```typescript
-const client = new RealtimeClient({
-  url: 'wss://api.ticos.ai/v1/realtime',
-  apiKey: 'YOUR_API_KEY',
-  debug: true, // Optional: Enable debug logging
-});
+2. `/src/types/` - Type definitions
+   - `client.ts` - Client-related types
+   - `conversation.ts` - Conversation-related types
+   - `events.ts` - Event-related types
+   - `index.ts` - Type exports
 
-// Event handling
-client.on('connected', () => console.log('Connected!'));
-client.on('error', (error) => console.error('Error:', error));
+3. `/src/utils/` - Utilities
+   - `index.ts` - Utility functions
+
+4. `/src/index.ts` - Main entry point with organized exports
+
+## Documentation
+
+For detailed API documentation, run:
+
+```bash
+pnpm documentation
 ```
 
-### RealtimeConversation
+This will generate and serve the API documentation locally.
 
-Manages conversation flow and message handling.
+## Core Functionality
 
-```typescript
-// Create a conversation
-const conversation = await client.createConversation();
+### Real-time Communication
 
-// Send different types of messages
-// Text message
-await conversation.sendMessage('Hello!');
+The Ticos Realtime API enables real-time bidirectional communication between your application and Ticos AI models through WebSockets.
 
-// Audio message
-await conversation.sendMessage({
-  type: 'audio',
-  data: audioBuffer,
-  transcript: 'Hello!',
-});
+### Tool Registration and Execution
 
-// Handle conversation events
-conversation.on('item.completed', (item) => {
-  console.log('Message completed:', item);
-});
-```
-
-### RealtimeAPI
-
-Handles tool registration and execution.
+Register custom tools that can be called by the AI:
 
 ```typescript
-// Register a tool
 await client.api.registerTool({
   name: 'search',
   description: 'Search for information',
   parameters: {
     type: 'object',
     properties: {
-      query: {
-        type: 'string',
-        description: 'Search query',
-      },
+      query: { type: 'string', description: 'Search query' }
     },
-    required: ['query'],
-  },
+    required: ['query']
+  }
 });
 
 // Handle tool calls
-client.api.on('tool.call', async (toolCall) => {
-  if (toolCall.tool_name === 'search') {
-    // Handle the search request
-    const result = await performSearch(toolCall.parameters.query);
-    return result;
-  }
+client.on('tool.call', async (event) => {
+  const { tool_name, parameters, call_id } = event;
+  
+  // Process the tool call
+  const result = await yourToolImplementation(parameters);
+  
+  // Send the result back
+  await client.api.sendToolResponse({
+    call_id,
+    result
+  });
 });
 ```
 
-## WebSocket Events
+### Audio Support
 
-The SDK uses various WebSocket events for real-time communication:
-
-- **client.\*** - All client-side events
-- **server.\*** - All server-side events
-- **session.update** - Session configuration updates
-- **conversation.start** - New conversation started
-- **conversation.end** - Conversation ended
-- **conversation.item.appended** - New message added
-- **conversation.item.completed** - Message processing completed
-- **conversation.item.error** - Error in message processing
-- **tool.register** - Tool registration
-- **tool.call** - Tool execution request
-- **tool.response** - Tool execution response
-
-## Error Handling
+Send and receive audio messages:
 
 ```typescript
-// Global error handling
-client.on('error', (error) => {
-  console.error('Client error:', error);
+// Send audio
+await conversation.sendMessage({
+  type: 'audio',
+  data: audioBuffer, // ArrayBuffer containing audio data
+  transcript: 'Optional transcript'
 });
 
-// Conversation-specific error handling
-conversation.on('item.error', (error) => {
-  console.error('Conversation error:', error);
-});
-
-// Tool execution error handling
-client.api.on('tool.error', (error) => {
-  console.error('Tool error:', error);
+// Listen for audio responses
+client.on('message', (event) => {
+  if (event.type === 'audio') {
+    const audioData = event.audio;
+    // Process audio data
+  }
 });
 ```
 
@@ -174,22 +183,12 @@ pnpm build
 pnpm test
 
 # Generate documentation
-pnpm docs
+pnpm documentation
 
 # Start development mode with watch
 pnpm dev
 ```
 
-## API Documentation
-
-For detailed API documentation, run:
-
-```bash
-pnpm docs
-```
-
-This will generate and serve the API documentation locally.
-
 ## License
 
-MIT © [Tiwater](https://github.com/tiwater)
+MIT

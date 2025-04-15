@@ -1,587 +1,297 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Ticos Realtime API",
-    "version": "0.0.1-beta.1",
-    "description": "\nOfficial Realtime API SDK for Ticos. This API provides real-time communication capabilities through WebSocket connections.\n\n## Core Classes\n\n### RealtimeClient\nThe main client class for interacting with the Ticos Realtime API. It handles WebSocket connections, authentication, and event management.\n\n```typescript\nconst client = new RealtimeClient({\n  url: 'wss://api.ticos.ai/v1/realtime',\n  apiKey: 'YOUR_API_KEY'\n});\n\nawait client.connect();\n```\n\n### RealtimeAPI\nManages the API-level operations and provides methods for tool registration and execution.\n\n```typescript\nconst api = client.api;\nawait api.registerTool({\n  name: 'search',\n  description: 'Search for information',\n  parameters: {\n    type: 'object',\n    properties: {\n      query: { type: 'string' }\n    }\n  }\n});\n```\n\n### RealtimeConversation\nHandles conversation flow, message management, and state tracking.\n\n```typescript\nconst conversation = await client.createConversation();\nawait conversation.sendMessage('Hello!');\n```\n\n## Features\n- Real-time bidirectional communication\n- Support for text and audio messages\n- Tool registration and execution\n- Session management\n- Conversation state tracking\n\n## Authentication\nAll connections require an API key that should be passed in the Authorization header.\n    "
+    "title": "Realtime API",
+    "version": "0.1.1",
+    "description": "\nOfficial SDK for Realtime API. This API provides real-time communication capabilities through WebSocket connections.\n\n## Core Classes\n\n### RealtimeClient\nThe main client class for interacting with the Realtime API. It handles WebSocket connections, authentication, and event management.\n\n```typescript\nconst client = new RealtimeClient({\n  url: 'wss://stardust.ticos.cn/realtime',\n  apiKey: 'YOUR_API_KEY'\n});\n\nawait client.connect();\n```\n\n### RealtimeAPI\nManages the API-level operations and provides methods for tool registration and execution.\n\n```typescript\nconst api = client.api;\nawait api.registerTool({\n  name: 'search',\n  description: 'Search for information',\n  parameters: {\n    type: 'object',\n    properties: {\n      query: { type: 'string' }\n    }\n  }\n});\n```\n\n### RealtimeConversation\nHandles conversation flow, message management, and state tracking.\n\n```typescript\nconst conversation = await client.createConversation();\nawait conversation.sendMessage('Hello!');\n```\n\n## Features\n- Real-time bidirectional communication\n- Support for text and audio messages\n- Tool registration and execution\n- Session management\n- Conversation state tracking\n\n## Authentication\nAll connections require an API key that should be passed in the Authorization header.\n    "
   },
   "servers": [
     {
-      "url": "wss://api.ticos.ai/v1/realtime",
+      "url": "wss://stardust.ticos.cn/realtime",
       "description": "Production WebSocket endpoint"
     },
     {
-      "url": "wss://api.staging.ticos.ai/v1/realtime",
+      "url": "wss://staging.stardust.ticos.cn/realtime",
       "description": "Staging WebSocket endpoint"
     }
   ],
   "components": {
     "schemas": {
-      "RealtimeClientSettings": {
+      "ClientOptions": {
+        "description": "Configuration options for initializing the client",
         "type": "object",
         "properties": {
           "url": {
-            "type": "string",
             "description": "WebSocket endpoint URL",
-            "example": "wss://api.ticos.ai/v1/realtime"
+            "type": "string"
           },
           "apiKey": {
-            "type": "string",
             "description": "API key for authentication",
-            "example": "sk_ticos_xxxxxxxxxxxx"
+            "type": "string"
           },
           "dangerouslyAllowAPIKeyInBrowser": {
-            "type": "boolean",
             "description": "Whether to allow API key usage in browser (not recommended for production)",
-            "default": false
+            "type": "boolean"
           },
           "debug": {
-            "type": "boolean",
             "description": "Enable debug logging",
-            "default": false
+            "type": "boolean"
           }
         },
+        "additionalProperties": false,
         "required": [
-          "url",
-          "apiKey"
-        ]
+          "apiKey",
+          "url"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "ToolDefinition": {
+        "description": "Tool definition for registering tools with the client",
+        "type": "object",
+        "properties": {
+          "type": {
+            "description": "Tool type, always \"function\"",
+            "type": "string",
+            "const": "function"
+          },
+          "id": {
+            "description": "Optional unique identifier",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the tool",
+            "type": "string"
+          },
+          "description": {
+            "description": "Description of what the tool does",
+            "type": "string"
+          },
+          "parameters": {
+            "description": "Parameters schema",
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "object"
+              },
+              "properties": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false,
+            "required": [
+              "properties",
+              "type"
+            ]
+          },
+          "required": {
+            "description": "Required parameter names",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "operation_mode": {
+            "description": "Tool operation mode",
+            "enum": [
+              "client_mode",
+              "server_mode"
+            ],
+            "type": "string"
+          },
+          "execution_type": {
+            "description": "Tool execution type",
+            "enum": [
+              "asynchronous",
+              "synchronous"
+            ],
+            "type": "string"
+          },
+          "result_handling": {
+            "description": "How to handle the tool's result",
+            "enum": [
+              "ignore_result",
+              "process_in_client",
+              "process_in_llm"
+            ],
+            "type": "string"
+          },
+          "code": {
+            "description": "Tool implementation code",
+            "type": "string"
+          },
+          "language": {
+            "description": "Programming language of the code",
+            "enum": [
+              "python",
+              "shell"
+            ],
+            "type": "string"
+          },
+          "platform": {
+            "description": "Operating system platform",
+            "enum": [
+              "linux",
+              "macos",
+              "windows"
+            ],
+            "type": "string"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "description",
+          "execution_type",
+          "language",
+          "name",
+          "operation_mode",
+          "parameters",
+          "platform",
+          "required",
+          "result_handling",
+          "type"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
       },
       "ItemType": {
+        "description": "Base item type for conversation items",
         "type": "object",
         "properties": {
           "id": {
-            "type": "string",
-            "description": "Unique identifier for the item",
-            "example": "msg_123456789"
+            "type": "string"
           },
           "type": {
-            "type": "string",
-            "description": "Type of the item",
             "enum": [
-              "text",
               "audio",
               "image",
+              "message",
+              "text",
               "tool_call",
               "tool_response"
             ],
-            "example": "text"
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "assistant",
+              "user"
+            ],
+            "type": "string"
           },
           "content": {
             "type": "array",
-            "description": "Array of content objects containing the actual message data",
             "items": {
-              "type": "object",
-              "properties": {
-                "type": {
-                  "type": "string",
-                  "description": "Content type",
-                  "enum": [
+              "description": "Union type for all possible content types",
+              "anyOf": [
+                {
+                  "description": "Text content in a message",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "text"
+                    },
+                    "text": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "required": [
                     "text",
-                    "audio",
-                    "image"
+                    "type"
                   ]
                 },
-                "text": {
-                  "type": "string",
-                  "description": "Text content if type is text",
-                  "example": "Hello, how can I help you today?"
+                {
+                  "description": "Audio content in a message",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "audio"
+                    },
+                    "audio": {
+                      "type": "string"
+                    },
+                    "transcript": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "required": [
+                    "audio",
+                    "type"
+                  ]
                 },
-                "audio": {
-                  "type": "string",
-                  "description": "Base64 encoded audio data if type is audio",
-                  "example": "data:audio/wav;base64,UklGRiQAAABXQVZFZm10..."
-                },
-                "transcript": {
-                  "type": "string",
-                  "description": "Audio transcript if type is audio",
-                  "example": "Hello, how can I help you today?"
-                },
-                "image": {
-                  "type": "string",
-                  "description": "Base64 encoded image data if type is image",
-                  "example": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+                {
+                  "description": "Image content in a message",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "const": "image"
+                    },
+                    "image": {
+                      "type": "string"
+                    },
+                    "caption": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "required": [
+                    "image",
+                    "type"
+                  ]
                 }
-              }
-            }
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "pending",
-              "completed",
-              "error"
-            ],
-            "description": "Current status of the item",
-            "example": "completed"
-          },
-          "error": {
-            "type": "object",
-            "description": "Error details if status is error",
-            "properties": {
-              "code": {
-                "type": "string",
-                "description": "Error code",
-                "example": "invalid_request"
-              },
-              "message": {
-                "type": "string",
-                "description": "Error message",
-                "example": "Invalid request parameters"
-              }
-            }
-          }
-        },
-        "required": [
-          "id",
-          "type",
-          "content",
-          "status"
-        ]
-      },
-      "ToolDefinitionType": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "description": "Name of the tool",
-            "example": "search_database"
-          },
-          "description": {
-            "type": "string",
-            "description": "Description of what the tool does",
-            "example": "Searches the database for relevant information"
-          },
-          "parameters": {
-            "type": "object",
-            "description": "JSON Schema for the tool parameters",
-            "example": {
-              "type": "object",
-              "properties": {
-                "query": {
-                  "type": "string",
-                  "description": "Search query"
-                },
-                "limit": {
-                  "type": "number",
-                  "description": "Maximum number of results"
-                }
-              },
-              "required": [
-                "query"
               ]
             }
-          }
-        },
-        "required": [
-          "name",
-          "description",
-          "parameters"
-        ]
-      },
-      "RealtimeClient": {
-        "type": "object",
-        "description": "Main client class for interacting with the Ticos Realtime API",
-        "properties": {
-          "settings": {
-            "$ref": "#/components/schemas/RealtimeClientSettings"
-          },
-          "api": {
-            "$ref": "#/components/schemas/RealtimeAPI"
-          },
-          "isConnected": {
-            "type": "boolean",
-            "description": "Whether the client is currently connected"
-          },
-          "isConnecting": {
-            "type": "boolean",
-            "description": "Whether the client is currently establishing a connection"
-          }
-        },
-        "methods": {
-          "connect": {
-            "description": "Establishes a WebSocket connection to the server",
-            "returns": "Promise<void>",
-            "example": "await client.connect();"
-          },
-          "disconnect": {
-            "description": "Closes the WebSocket connection",
-            "returns": "Promise<void>",
-            "example": "await client.disconnect();"
-          },
-          "createConversation": {
-            "description": "Creates a new conversation instance",
-            "returns": "Promise<RealtimeConversation>",
-            "example": "const conversation = await client.createConversation();"
-          },
-          "on": {
-            "description": "Registers an event listener",
-            "parameters": {
-              "event": {
-                "type": "string",
-                "description": "Event name to listen for"
-              },
-              "handler": {
-                "type": "function",
-                "description": "Callback function to handle the event"
-              }
-            },
-            "example": "client.on('connected', () => console.log('Connected!'));"
-          },
-          "off": {
-            "description": "Removes an event listener",
-            "parameters": {
-              "event": {
-                "type": "string",
-                "description": "Event name to stop listening for"
-              },
-              "handler": {
-                "type": "function",
-                "description": "Callback function to remove"
-              }
-            }
-          }
-        }
-      },
-      "RealtimeAPI": {
-        "type": "object",
-        "description": "API management class for tool registration and execution",
-        "properties": {
-          "client": {
-            "$ref": "#/components/schemas/RealtimeClient",
-            "description": "Reference to the parent client instance"
-          },
-          "tools": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ToolDefinitionType"
-            },
-            "description": "List of registered tools"
-          }
-        },
-        "methods": {
-          "registerTool": {
-            "description": "Registers a new tool with the API",
-            "parameters": {
-              "tool": {
-                "$ref": "#/components/schemas/ToolDefinitionType",
-                "description": "Tool definition to register"
-              }
-            },
-            "returns": "Promise<void>",
-            "example": "await api.registerTool({\n  name: 'search',\n  description: 'Search for information',\n  parameters: {\n    type: 'object',\n    properties: {\n      query: { type: 'string' }\n    }\n  }\n});"
-          },
-          "unregisterTool": {
-            "description": "Removes a registered tool",
-            "parameters": {
-              "name": {
-                "type": "string",
-                "description": "Name of the tool to unregister"
-              }
-            },
-            "returns": "Promise<void>"
-          },
-          "handleToolCall": {
-            "description": "Handles incoming tool execution requests",
-            "parameters": {
-              "toolCall": {
-                "type": "object",
-                "properties": {
-                  "tool_name": {
-                    "type": "string"
-                  },
-                  "parameters": {
-                    "type": "object"
-                  },
-                  "call_id": {
-                    "type": "string"
-                  }
-                }
-              }
-            },
-            "returns": "Promise<void>"
-          }
-        }
-      },
-      "RealtimeConversation": {
-        "type": "object",
-        "description": "Manages conversation flow and message handling",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Unique identifier for the conversation"
-          },
-          "client": {
-            "$ref": "#/components/schemas/RealtimeClient",
-            "description": "Reference to the parent client instance"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ItemType"
-            },
-            "description": "List of conversation items (messages, events, etc.)"
           },
           "status": {
-            "type": "string",
             "enum": [
-              "active",
               "completed",
-              "error"
+              "incomplete"
             ],
-            "description": "Current status of the conversation"
+            "type": "string"
           }
         },
-        "methods": {
-          "sendMessage": {
-            "description": "Sends a message in the conversation",
-            "parameters": {
-              "content": {
-                "oneOf": [
-                  {
-                    "type": "string",
-                    "description": "Text message content"
-                  },
-                  {
-                    "type": "object",
-                    "description": "Complex message content (audio, image, etc.)"
-                  }
-                ]
-              },
-              "options": {
-                "type": "object",
-                "description": "Additional message options",
-                "properties": {
-                  "type": {
-                    "type": "string",
-                    "enum": [
-                      "text",
-                      "audio",
-                      "image"
-                    ]
-                  }
-                }
-              }
-            },
-            "returns": "Promise<ItemType>",
-            "example": "// Send text message\nawait conversation.sendMessage('Hello!');\n\n// Send audio message\nawait conversation.sendMessage({\n  type: 'audio',\n  data: audioBuffer,\n  transcript: 'Hello!'\n});"
-          },
-          "end": {
-            "description": "Ends the conversation",
-            "parameters": {
-              "reason": {
-                "type": "string",
-                "enum": [
-                  "completed",
-                  "timeout",
-                  "error"
-                ],
-                "description": "Reason for ending the conversation"
-              }
-            },
-            "returns": "Promise<void>"
-          },
-          "on": {
-            "description": "Registers a conversation-specific event listener",
-            "parameters": {
-              "event": {
-                "type": "string",
-                "description": "Event name to listen for"
-              },
-              "handler": {
-                "type": "function",
-                "description": "Callback function to handle the event"
-              }
-            }
+        "additionalProperties": false,
+        "required": [
+          "content",
+          "id",
+          "type"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "Event": {
+        "description": "Base event interface",
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
           }
-        }
+        },
+        "additionalProperties": false,
+        "required": [
+          "type"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
       }
     },
     "securitySchemes": {
       "apiKey": {
         "type": "apiKey",
         "in": "header",
-        "name": "Authorization",
-        "description": "API key for authentication. Use format: \"Bearer YOUR_API_KEY\""
-      }
-    },
-    "x-websocket-events": {
-      "client.*": {
-        "description": "All client-side events",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "event_id": {
-              "type": "string"
-            },
-            "type": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "server.*": {
-        "description": "All server-side events",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "type": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "session.update": {
-        "description": "Update session configuration",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "session": {
-              "$ref": "#/components/schemas/RealtimeClientSettings"
-            }
-          }
-        }
-      },
-      "conversation.start": {
-        "description": "Start a new conversation",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "conversation_id": {
-              "type": "string",
-              "example": "conv_123456789"
-            },
-            "metadata": {
-              "type": "object",
-              "description": "Optional metadata for the conversation"
-            }
-          }
-        }
-      },
-      "conversation.end": {
-        "description": "End the current conversation",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "conversation_id": {
-              "type": "string",
-              "example": "conv_123456789"
-            },
-            "reason": {
-              "type": "string",
-              "enum": [
-                "completed",
-                "timeout",
-                "error"
-              ],
-              "example": "completed"
-            }
-          }
-        }
-      },
-      "conversation.item.appended": {
-        "description": "New item added to conversation",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "item": {
-              "$ref": "#/components/schemas/ItemType"
-            }
-          }
-        }
-      },
-      "conversation.item.completed": {
-        "description": "Conversation item completed",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "item": {
-              "$ref": "#/components/schemas/ItemType"
-            }
-          }
-        }
-      },
-      "conversation.item.error": {
-        "description": "Error occurred while processing conversation item",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "item": {
-              "$ref": "#/components/schemas/ItemType"
-            },
-            "error": {
-              "type": "object",
-              "properties": {
-                "code": {
-                  "type": "string"
-                },
-                "message": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      },
-      "tool.register": {
-        "description": "Register a new tool",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "tool": {
-              "$ref": "#/components/schemas/ToolDefinitionType"
-            }
-          }
-        }
-      },
-      "tool.call": {
-        "description": "Tool execution request",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "tool_name": {
-              "type": "string"
-            },
-            "parameters": {
-              "type": "object"
-            },
-            "call_id": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "tool.response": {
-        "description": "Tool execution response",
-        "payload": {
-          "type": "object",
-          "properties": {
-            "call_id": {
-              "type": "string"
-            },
-            "result": {
-              "type": "object"
-            },
-            "error": {
-              "type": "object",
-              "properties": {
-                "code": {
-                  "type": "string"
-                },
-                "message": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
+        "name": "Authorization"
       }
     }
   },
   "paths": {
     "/": {
       "get": {
-        "summary": "Establish WebSocket connection",
-        "description": "\nEstablishes a WebSocket connection to the Realtime API server.\n\n## Connection Flow\n1. Client initiates WebSocket connection with API key in Authorization header\n2. Server validates API key and accepts connection\n3. Client receives welcome message and session configuration\n4. Client can start sending and receiving messages\n\n## Example (JavaScript)\n```javascript\nconst client = new RealtimeClient({\n  url: 'wss://api.ticos.ai/v1/realtime',\n  apiKey: 'YOUR_API_KEY',\n});\n\n// Connect and handle events\nawait client.connect();\nconst conversation = await client.createConversation();\n\n// Send a message\nawait conversation.sendMessage('Hello!');\n\n// Register a tool\nawait client.api.registerTool({\n  name: 'search',\n  description: 'Search for information',\n  parameters: {\n    type: 'object',\n    properties: {\n      query: { type: 'string' }\n    }\n  }\n});\n```\n        ",
+        "summary": "Connect to the Realtime API WebSocket",
+        "description": "\nEstablishes a WebSocket connection to the Realtime API. Once connected, you can send and receive messages in real-time.\n\n```typescript\nconst client = new RealtimeClient({\n  url: 'wss://stardust.ticos.cn/realtime',\n  apiKey: 'YOUR_API_KEY'\n});\n\nawait client.connect();\n```\n        ",
         "tags": [
           "WebSocket"
         ],
@@ -629,24 +339,5 @@
         ]
       }
     }
-  },
-  "tags": [
-    {
-      "name": "WebSocket",
-      "description": "WebSocket connection management"
-    },
-    {
-      "name": "Conversation",
-      "description": "Conversation flow and message handling"
-    },
-    {
-      "name": "Tools",
-      "description": "Tool registration and execution"
-    }
-  ],
-  "security": [
-    {
-      "apiKey": []
-    }
-  ]
+  }
 }

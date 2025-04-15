@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { ToolDefinitionType } from '../lib/types';
+import { ToolDefinition } from '../src/types/client';
 
 describe('Tool Definition Types', () => {
   it('should validate a correct tool definition', () => {
-    const toolDef: ToolDefinitionType = {
+    const toolDef: ToolDefinition = {
       type: 'function',
       name: 'test-tool',
       description: 'A test tool',
@@ -25,7 +25,7 @@ describe('Tool Definition Types', () => {
       platform: 'linux',
     };
 
-    expect(toolDef).toBeDefined();
-    expect(toolDef.type).toBe('function');
+    expect(toolDef).to.exist;
+    expect(toolDef.type).to.equal('function');
   });
-}); 
+});

@@ -19,17 +19,10 @@ export * from './types/events';
 export * from './types/conversation';
 
 // Core functionality
-export * from './client';
-export * from './api';
-export * from './conversation';
-export * from './event-handler';
-
-// Configuration
-export * from './config/openai';
-export * from './config/ticos';
-
-// Provider types
-export * from './openai/types';
+export { RealtimeClient } from './core/client';
+export { RealtimeAPI } from './core/realtime';
+export { RealtimeConversation } from './core/conversation';
+export { RealtimeEventHandler } from './core/event-handler';
 
 // Utilities
 export * from './utils';

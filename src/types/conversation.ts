@@ -1,7 +1,7 @@
 /**
  * Types of content that can be sent in a message
  */
-export type ContentType = 'text' | 'audio' | 'image';
+export type ContentType = 'text' | 'audio' | 'image' | 'input_text' | 'input_audio';
 
 /**
  * Status of a conversation item
@@ -42,9 +42,26 @@ export interface ImageContent extends ContentBase {
 }
 
 /**
+ * Input text content in a message
+ */
+export interface InputTextContent extends ContentBase {
+  type: 'input_text';
+  text: string;
+}
+
+/**
+ * Input audio content in a message
+ */
+export interface InputAudioContent extends ContentBase {
+  type: 'input_audio';
+  audio?: string; // Base64 encoded audio data
+  transcript?: string | null;
+}
+
+/**
  * Union type for all possible content types
  */
-export type Content = TextContent | AudioContent | ImageContent;
+export type Content = TextContent | AudioContent | ImageContent | InputTextContent | InputAudioContent;
 
 /**
  * Error information for items with error status
@@ -73,4 +90,4 @@ export interface ConversationState {
   items: ItemType[];
   status: 'active' | 'completed' | 'error';
   metadata?: Record<string, any>;
-} 
+}
