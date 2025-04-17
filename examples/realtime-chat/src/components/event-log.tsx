@@ -12,6 +12,30 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Trash2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+
+// Helper function to format JSON with special handling for base64 strings
+const formatJsonWithBase64 = (obj: any) => {
+  // Custom replacer function to handle base64 strings
+  const replacer = (key: string, value: any) => {
+    // Check if value is a string that looks like base64 (long string without spaces)
+    if (typeof value === 'string' && value.length > 200 && /^[A-Za-z0-9+/=]+$/.test(value)) {
+      // Return truncated version for very long strings
+      if (value.length > 100) {
+        return value.substring(0, 40) + '... [truncated, length: ' + value.length + ']';
+      }
+      // For medium strings, just return them normally - the CSS will handle wrapping
+      return value;
+    }
+    return value;
+  };
+
+  // Format the JSON with custom replacer
+  return JSON.stringify(obj, replacer, 2);
+};
 
 export function EventLog() {
   const { events } = useRealtime();
@@ -39,16 +63,10 @@ export function EventLog() {
             )}
           </h2>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Auto-scroll</span>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoScroll}
-                onChange={(e) => setAutoScroll(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-9 h-5 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-brand"></div>
-            </label>
+            <Label htmlFor="auto-scroll" className="text-xs text-muted-foreground">
+              Auto-scroll
+            </Label>
+            <Switch id="auto-scroll" checked={autoScroll} onCheckedChange={setAutoScroll} />
           </div>
         </div>
       </div>
@@ -70,7 +88,7 @@ export function EventLog() {
                       event.source === 'server'
                         ? ''
                         : event.source === 'client'
-                          ? 'bg-green-400/10 border-green-400/10'
+                          ? 'bg-green-400/5 border-green-400/10'
                           : 'bg-red-50 border-red-200'
                     )}
                   >
@@ -78,10 +96,10 @@ export function EventLog() {
                       className={cn(
                         'py-2 px-3 hover:no-underline',
                         event.source === 'server'
-                          ? 'text-blue-700'
+                          ? 'text-blue-500'
                           : event.source === 'client'
-                            ? 'text-green-700'
-                            : 'text-red-700'
+                            ? 'text-green-500'
+                            : 'text-red-500'
                       )}
                     >
                       <div className="flex justify-between items-center w-full">
@@ -110,7 +128,9 @@ export function EventLog() {
                       {event.event && (
                         <ScrollArea className="text-xs p-2 border border-t">
                           <div className="p-0 max-h-40">
-                            <pre>{JSON.stringify(event.event, null, 2)}</pre>
+                            <pre className="whitespace-pre-wrap break-words break-all hyphens-auto overflow-wrap-anywhere text-xs overflow-x-auto">
+                              {formatJsonWithBase64(event.event)}
+                            </pre>
                           </div>
                         </ScrollArea>
                       )}

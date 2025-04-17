@@ -3,11 +3,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import {
   RealtimeClient,
-  TimestampedEvent,
   RealtimeUtils,
   Event as RealtimeBaseEvent,
   InputTextContent,
   InputAudioContent,
+  ItemType,
 } from '@ticos/realtime-api';
 import { WavRecorder, WavStreamPlayer } from '@/lib/wavtools';
 
@@ -21,22 +21,12 @@ interface Event {
   count?: number;
 }
 
-interface Message {
-  id: string;
-  content: string;
-  isUser: boolean;
-  timestamp: Date;
-  status?: 'sending' | 'sent' | 'received' | 'error';
-  audioUrl?: string;
-  audioData?: string; // Base64 encoded audio data
-}
-
 interface RealtimeContextType {
   client: any;
   isConnected: boolean;
   isLoading: boolean;
   error: Error | null;
-  messages: Message[];
+  messages: ItemType[];
   events: Event[];
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
@@ -44,7 +34,7 @@ interface RealtimeContextType {
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<void>;
   isRecording: boolean;
-  playAudio: (audioData: string) => void;
+  playAudio: (audioData: string | Int16Array | ArrayBuffer) => void;
   vadEnabled: boolean;
   setVadEnabled: (enabled: boolean) => void;
 }
@@ -63,12 +53,11 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
   children,
   serverUrl = 'wss://stardust.ticos.cn/realtime',
 }) => {
-  const [client, setClient] = useState<any>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ItemType[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [vadEnabled, setVadEnabled] = useState(false);
   const clientRef = useRef<any>(null);
@@ -204,46 +193,60 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
       console.log('event', event);
     });
 
-    // Handle connection status changes
+    // Handle direct connection events (these should now work with our SDK fix)
     clientRef.current.on('client.connected', () => {
+      console.log('Direct client.connected event received');
       setIsConnected(true);
     });
 
     clientRef.current.on('client.disconnected', () => {
+      console.log('Direct client.disconnected event received');
       setIsConnected(false);
+
+      // Clean up audio resources
+      if (isRecording) {
+        try {
+          if (recorderRef.current) {
+            recorderRef.current.pause();
+          }
+          setIsRecording(false);
+        } catch (error) {
+          console.error('Error stopping recording on disconnect:', error);
+        }
+      }
+
+      // Stop any audio playback
+      if (playerRef.current) {
+        try {
+          playerRef.current.interrupt && playerRef.current.interrupt();
+        } catch (error) {
+          console.error('Error stopping audio playback on disconnect:', error);
+        }
+      }
+
+      // Reset audio buffer
+      audioBufferRef.current = new Int16Array(0);
     });
 
     clientRef.current.on('client.error', (error: any) => {
+      console.log('Direct client.error event received', error);
       setError(new Error('Error connecting to Realtime API'));
     });
 
-    // Handle conversation item events
-    clientRef.current.on('conversation.item.appended', (event: any) => {
-      const { item } = event;
-      if (item && item.type === 'message') {
-        const isUser = item.role === 'user';
-        const content = item.content.find((c: any) => c.type === 'text')?.text || '';
-        const audioContent = item.content.find((c: any) => c.type === 'audio')?.audio;
-
-        const newMessage: Message = {
-          id: item.id,
-          content,
-          isUser,
-          timestamp: new Date(),
-          status: 'received',
-          audioData: audioContent,
-        };
-
-        setMessages((prev) => [...prev, newMessage]);
-      }
-    });
-
     // Handle conversation updated event for audio processing
-    clientRef.current.on('conversation.updated', (event: any) => {
+    clientRef.current.on('conversation.updated', async (event: any) => {
+      const items = clientRef.current.getConversationItems();
       const { item, delta } = event;
 
+      // Handle audio delta
       if (delta?.audio && playerRef.current) {
         playerRef.current.add16BitPCM(delta.audio, item.id);
+      }
+
+      // Handle transcript delta
+      if (delta?.transcript) {
+        console.log('Transcript delta received:', delta.transcript);
+        // The transcript is already processed by the SDK's event processor
       }
 
       if (item?.status === 'completed' && item.formatted?.audio?.length) {
@@ -278,7 +281,7 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
           type: 'audio/wav',
         });
 
-        WavRecorder.decode(wavBlob, SAMPLE_RATE).then((decodedAudio) => {
+        await WavRecorder.decode(wavBlob, SAMPLE_RATE).then((decodedAudio) => {
           console.log('Decoded audio:', {
             blobSize: decodedAudio.blob.size,
             blobType: decodedAudio.blob.type,
@@ -286,14 +289,13 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
             duration: decodedAudio.audioBuffer.duration,
           });
 
-          // Update the message with the audio URL
-          setMessages((prevMessages) =>
-            prevMessages.map((msg) =>
-              msg.id === item.id ? { ...msg, audioUrl: decodedAudio.url } : msg
-            )
-          );
+          item.formatted.file = {
+            url: decodedAudio.url,
+            blob: decodedAudio.blob,
+          };
         });
       }
+      setMessages(items);
     });
 
     // Handle conversation interrupted event
@@ -456,8 +458,8 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
     }
   };
 
-  // Play audio from base64 data or URL
-  const playAudio = async (audioData: string) => {
+  // Play audio from base64 data, URL, or buffer
+  const playAudio = async (audioData: string | Int16Array | ArrayBuffer) => {
     try {
       // Make sure audio is initialized
       if (!audioInitializedRef.current) {
@@ -468,19 +470,31 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
         throw new Error('Audio player not initialized');
       }
 
-      // Check if it's a URL or base64 data
-      if (audioData.startsWith('http') || audioData.startsWith('blob:')) {
-        // It's a URL, fetch the audio data
-        const response = await fetch(audioData);
-        const arrayBuffer = await response.arrayBuffer();
-        const int16Data = new Int16Array(arrayBuffer);
-        playerRef.current.add16BitPCM(int16Data);
+      let int16Data: Int16Array;
+
+      // Handle different input types
+      if (typeof audioData === 'string') {
+        // Check if it's a URL or base64 data
+        if (audioData.startsWith('http') || audioData.startsWith('blob:')) {
+          // It's a URL, fetch the audio data
+          const response = await fetch(audioData);
+          const arrayBuffer = await response.arrayBuffer();
+          int16Data = new Int16Array(arrayBuffer);
+        } else {
+          // It's base64 data, convert to Int16Array using SDK utility
+          const arrayBuffer = RealtimeUtils.base64ToArrayBuffer(audioData);
+          int16Data = new Int16Array(arrayBuffer);
+        }
+      } else if (audioData instanceof Int16Array) {
+        // It's already an Int16Array
+        int16Data = audioData;
       } else {
-        // It's base64 data, convert to Int16Array using SDK utility
-        const arrayBuffer = RealtimeUtils.base64ToArrayBuffer(audioData);
-        const int16Data = new Int16Array(arrayBuffer);
-        playerRef.current.add16BitPCM(int16Data);
+        // It's an ArrayBuffer, convert to Int16Array
+        int16Data = new Int16Array(audioData);
       }
+
+      // Play the audio
+      playerRef.current.add16BitPCM(int16Data);
     } catch (err) {
       console.error('Error playing audio', err);
       setError(
@@ -491,37 +505,31 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
 
   // Disconnect from the Realtime API
   const disconnect = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-
-      if (clientRef.current) {
-        // Disconnect from the server first
-        clientRef.current.disconnect();
-
-        // Clear event handlers
+      // Clean up event handlers and disconnect
+      if (clientRef.current && clientRef.current.isConnected()) {
         clientRef.current.clearEventHandlers();
-
-        // Remove the client reference
-        clientRef.current = null;
+        clientRef.current.disconnect();
       }
 
-      // Clean up audio components
-      if (recorderRef.current) {
-        await recorderRef.current.quit();
+      // Stop recording if active
+      if (recorderRef.current && isRecording) {
+        await recorderRef.current.end();
+        setIsRecording(false);
       }
 
+      // Interrupt audio player
       if (playerRef.current) {
         playerRef.current.interrupt();
       }
 
-      // Reset state
+      // Reset connection states
       setIsConnected(false);
       setIsLoading(false);
     } catch (err) {
-      console.error('Error during disconnect:', err);
-      setError(
-        new Error('Error disconnecting: ' + (err instanceof Error ? err.message : String(err)))
-      );
+      console.error('Error disconnecting', err);
+      setError(err instanceof Error ? err : new Error(String(err)));
       setIsLoading(false);
     }
   };

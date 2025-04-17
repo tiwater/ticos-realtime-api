@@ -10,6 +10,7 @@ interface ItemContentDelta {
   audio?: Int16Array;
   arguments?: string;
   transcript?: string;
+  output?: string;
 }
 
 /**
@@ -202,13 +203,76 @@ export class RealtimeConversation {
       return { item: newItem, delta: null };
     },
 
+    'conversation.item.input_audio_transcription.completed': (event) => {
+      const { item_id, content_index, transcript } = event;
+      const item = this.itemLookup[item_id];
+      // We use a single space to represent an empty transcript for .formatted values
+      // Otherwise it looks like no transcript provided
+      const formattedTranscript = transcript || ' ';
+
+      if (!item) {
+        // We can receive transcripts in VAD mode before item.created
+        // This happens specifically when audio is empty
+        this.queuedTranscriptItems[item_id] = {
+          transcript: formattedTranscript,
+        };
+        return { item: null, delta: null };
+      } else {
+        try {
+          if (content_index !== undefined && item.content[content_index]) {
+            // Only set transcript on audio content types
+            const contentItem = item.content[content_index];
+            if (contentItem.type === 'audio' || contentItem.type === 'input_audio') {
+              // Type assertion to inform TypeScript this is an audio content type
+              (contentItem as any).transcript = transcript;
+            }
+          }
+          if (!item.formatted) {
+            item.formatted = {};
+          }
+          item.formatted.transcript = formattedTranscript;
+          return { item, delta: { transcript } };
+        } catch (error) {
+          console.error(`Error processing input audio transcription:`, error);
+          return { item, delta: null };
+        }
+      }
+    },
+
+    'response.audio_transcript.delta': (event) => {
+      const { item_id, content_index, delta } = event;
+      const item = this.itemLookup[item_id];
+      if (!item) {
+        console.warn(`response.audio_transcript.delta: Item "${item_id}" not found, skipping`);
+        return { item: null, delta: null };
+      }
+
+      try {
+        if (!item.formatted) {
+          item.formatted = {};
+        }
+
+        if (typeof item.formatted.transcript !== 'string') {
+          item.formatted.transcript = '';
+        }
+
+        item.formatted.transcript += delta;
+        return { item, delta: { transcript: delta } };
+      } catch (error) {
+        console.error(`Error processing audio transcript delta:`, error);
+        return { item, delta: null };
+      }
+    },
+
     'response.audio.delta': (event) => {
       const { item_id, content_index, delta } = event;
       const item = this.itemLookup[item_id];
       if (!item) {
         console.warn(`response.audio.delta: Item "${item_id}" not found, skipping`);
         return { item: null, delta: null };
-      } else {
+      }
+
+      try {
         // Initialize formatted property if it doesn't exist
         if (!item.formatted) {
           item.formatted = {};
@@ -223,6 +287,9 @@ export class RealtimeConversation {
         const appendValues = new Int16Array(arrayBuffer);
         item.formatted.audio = RealtimeUtils.mergeInt16Arrays(item.formatted.audio, appendValues);
         return { item, delta: { audio: appendValues } };
+      } catch (error) {
+        console.error(`Failed to process audio delta for item ${item_id}:`, error);
+        return { item, delta: null };
       }
     },
 
@@ -233,25 +300,30 @@ export class RealtimeConversation {
         throw new Error(`response.text.delta: Item "${item_id}" not found`);
       }
 
-      // Initialize formatted property if it doesn't exist
-      if (!item.formatted) {
-        item.formatted = {};
-      }
-
-      // Initialize text property if it doesn't exist
-      if (!item.formatted.text) {
-        item.formatted.text = '';
-      }
-
-      if (item.content[content_index]) {
-        const contentItem = item.content[content_index];
-        if (contentItem.type === 'text') {
-          contentItem.text += delta;
+      try {
+        // Initialize formatted property if it doesn't exist
+        if (!item.formatted) {
+          item.formatted = {};
         }
-      }
 
-      item.formatted.text += delta;
-      return { item, delta: { text: delta } };
+        // Initialize text property if it doesn't exist
+        if (!item.formatted.text) {
+          item.formatted.text = '';
+        }
+
+        if (item.content[content_index]) {
+          const contentItem = item.content[content_index];
+          if (contentItem.type === 'text') {
+            contentItem.text += delta;
+          }
+        }
+
+        item.formatted.text += delta;
+        return { item, delta: { text: delta } };
+      } catch (error) {
+        console.error(`Error processing text delta:`, error);
+        return { item, delta: null };
+      }
     },
 
     'input_audio_buffer.speech_stopped': (event, inputAudioBuffer) => {
@@ -261,12 +333,47 @@ export class RealtimeConversation {
       }
       const speech = this.queuedSpeechItems[item_id];
       speech.audio_end_ms = audio_end_ms;
-      if (inputAudioBuffer) {
+      if (inputAudioBuffer && inputAudioBuffer instanceof Int16Array) {
         const startIndex = Math.floor((speech.audio_start_ms * this.defaultFrequency) / 1000);
         const endIndex = Math.floor((speech.audio_end_ms * this.defaultFrequency) / 1000);
-        speech.audio = inputAudioBuffer.slice(startIndex, endIndex);
+        // Ensure indices are valid before slicing
+        if (startIndex >= 0 && endIndex >= startIndex && endIndex <= inputAudioBuffer.length) {
+          speech.audio = inputAudioBuffer.slice(startIndex, endIndex);
+        } else {
+          console.warn(
+            `Invalid audio slice indices: start=${startIndex}, end=${endIndex}, length=${inputAudioBuffer.length}`
+          );
+          speech.audio = new Int16Array(0);
+        }
       }
       return { item: null, delta: null };
+    },
+
+    'response.function_call_arguments.delta': (event) => {
+      const { item_id, delta } = event;
+      const item = this.itemLookup[item_id];
+      if (!item) {
+        throw new Error(`response.function_call_arguments.delta: Item "${item_id}" not found`);
+      }
+
+      try {
+        // Handle arguments property
+        if (item.arguments !== undefined) {
+          item.arguments += delta;
+        } else {
+          console.warn(`Item ${item_id} doesn't have 'arguments' property`);
+        }
+
+        // Update formatted tool arguments if they exist
+        if (item.formatted?.tool) {
+          item.formatted.tool.arguments += delta;
+        }
+
+        return { item, delta: { arguments: delta } };
+      } catch (error) {
+        console.error(`Error processing function call arguments delta:`, error);
+        return { item, delta: null };
+      }
     },
 
     'response.output_item.done': (event) => {
@@ -278,8 +385,14 @@ export class RealtimeConversation {
       if (!foundItem) {
         throw new Error(`response.output_item.done: Item "${item.id}" not found`);
       }
-      foundItem.status = item.status;
-      return { item: foundItem, delta: null };
+
+      try {
+        foundItem.status = item.status;
+        return { item: foundItem, delta: null };
+      } catch (error) {
+        console.error(`Error processing output item done:`, error);
+        return { item: foundItem, delta: null };
+      }
     },
   };
 }

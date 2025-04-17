@@ -127,26 +127,195 @@ export class RealtimeClient extends RealtimeEventHandler {
     this.realtime.on('server.session.update', handleServerEvent);
     this.realtime.on('server.conversation.created', handleServerEvent);
     this.realtime.on('server.conversation.updated', handleServerEvent);
-    this.realtime.on('server.conversation.item.created', handleServerEvent);
+    this.realtime.on('server.conversation.item.created', (event: Event) => {
+      handleServerEvent(event);
+
+      // Process the event to get the item
+      const result = this.conversation.processEvent(event);
+      if (result.item) {
+        // Dispatch a conversation.item.appended event
+        this.dispatch('conversation.item.appended', {
+          type: 'conversation.item.appended',
+          item: result.item,
+        });
+        // Also dispatch a conversation.item.completed event if the item is completed
+        if (result.item.status === 'completed') {
+          this.dispatch('conversation.item.completed', {
+            type: 'conversation.item.completed',
+            item: result.item,
+          });
+        }
+      }
+    });
     this.realtime.on('server.conversation.item.truncated', handleServerEvent);
     this.realtime.on('server.conversation.item.deleted', handleServerEvent);
+    this.realtime.on(
+      'server.conversation.item.input_audio_transcription.completed',
+      (event: Event) => {
+        // Process the event with dispatch for UI updates
+        const result = this.conversation.processEvent(event);
+        if (result.item) {
+          this.dispatch('conversation.updated', {
+            type: 'conversation.updated',
+            item: result.item,
+            delta: result.delta,
+          });
+        }
+      }
+    );
     this.realtime.on('server.response.created', handleServerEvent);
     this.realtime.on('server.response.output_item.added', handleServerEvent);
     this.realtime.on('server.response.content_part.added', handleServerEvent);
-    this.realtime.on('server.response.text.delta', handleServerEvent);
-    this.realtime.on('server.response.audio.delta', handleServerEvent);
-    this.realtime.on('server.input_audio_buffer.speech_started', handleServerEvent);
-    this.realtime.on('server.input_audio_buffer.speech_stopped', handleServerEvent);
+    this.realtime.on('server.response.text.delta', (event: Event) => {
+      handleServerEvent(event);
+
+      // Process the event to get the item and delta
+      const result = this.conversation.processEvent(event);
+      if (result.item && result.delta) {
+        // Dispatch a conversation.updated event
+        this.dispatch('conversation.updated', {
+          type: 'conversation.updated',
+          item: result.item,
+          delta: result.delta,
+        });
+      }
+    });
+    this.realtime.on('server.response.function_call_arguments.delta', (event: Event) => {
+      handleServerEvent(event);
+
+      // Process the event to get the item and delta
+      const result = this.conversation.processEvent(event);
+      if (result.item && result.delta) {
+        // Dispatch a conversation.updated event
+        this.dispatch('conversation.updated', {
+          type: 'conversation.updated',
+          item: result.item,
+          delta: result.delta,
+        });
+      }
+    });
+    this.realtime.on('server.response.audio.delta', (event: Event) => {
+      handleServerEvent(event);
+
+      // Process the event to get the item and delta
+      const result = this.conversation.processEvent(event);
+      if (result.item && result.delta) {
+        // Dispatch a conversation.updated event
+        this.dispatch('conversation.updated', {
+          type: 'conversation.updated',
+          item: result.item,
+          delta: result.delta,
+        });
+      }
+    });
+    this.realtime.on('server.response.audio_transcript.delta', (event: Event) => {
+      handleServerEvent(event);
+
+      // Process the event to get the item and delta
+      const result = this.conversation.processEvent(event);
+      if (result.item && result.delta) {
+        // Dispatch a conversation.updated event
+        this.dispatch('conversation.updated', {
+          type: 'conversation.updated',
+          item: result.item,
+          delta: result.delta,
+        });
+      }
+    });
+    this.realtime.on('server.input_audio_buffer.speech_started', (event: Event) => {
+      handleServerEvent(event);
+
+      // Process the event
+      this.conversation.processEvent(event);
+
+      // Dispatch conversation.interrupted event
+      this.dispatch('conversation.interrupted', {
+        type: 'conversation.interrupted',
+      });
+    });
+    this.realtime.on('server.input_audio_buffer.speech_stopped', (event: Event) => {
+      handleServerEvent(event);
+
+      // Process the event with the input audio buffer
+      this.conversation.processEvent(event, this.inputAudioBuffer);
+    });
     this.realtime.on('server.tool.call', handleServerEvent);
 
+    // Helper function to call tools directly (matching JS SDK pattern)
+    const callTool = async (tool: any) => {
+      try {
+        const jsonArguments = JSON.parse(tool.arguments);
+        const toolConfig = this.tools[tool.name];
+        if (!toolConfig) {
+          throw new Error(`Tool "${tool.name}" has not been defined`);
+        }
+        const result = await toolConfig.handler(jsonArguments);
+        this.realtime.send('conversation.item.create', {
+          item: {
+            type: 'function_call_output',
+            call_id: tool.call_id,
+            output: JSON.stringify(result),
+          },
+        });
+      } catch (e) {
+        this.realtime.send('conversation.item.create', {
+          item: {
+            type: 'function_call_output',
+            call_id: tool.call_id,
+            output: JSON.stringify({ error: e instanceof Error ? e.message : String(e) }),
+          },
+        });
+      }
+      this.createResponse();
+    };
+
+    // Add handler for response.output_item.done - item completed
+    this.realtime.on('server.response.output_item.done', (event: Event) => {
+      handleServerEvent(event);
+
+      // Process the event to get the completed item
+      const result = this.conversation.processEvent(event);
+      if (result.item) {
+        // Dispatch a conversation.item.completed event
+        this.dispatch('conversation.item.completed', {
+          type: 'conversation.item.completed',
+          item: result.item,
+        });
+        // Also dispatch a conversation.updated event for completion
+        this.dispatch('conversation.updated', {
+          type: 'conversation.updated',
+          item: result.item,
+          delta: null,
+        });
+
+        // Call tool if it exists (matching JS SDK pattern)
+        if (result.item.formatted?.tool) {
+          callTool(result.item.formatted.tool);
+        }
+      }
+    });
+
     function handleClientEvent(event: Event) {
+      // Create the realtime.event wrapper
       const realtimeEvent = {
         time: new Date().toISOString(),
         source: 'client',
         event: event,
         type: 'realtime.event',
       };
+
+      // Dispatch the wrapped event
       self.dispatch('realtime.event', realtimeEvent);
+
+      // Also dispatch the original event directly for connection-related events
+      if (
+        event.type === 'client.connected' ||
+        event.type === 'client.disconnected' ||
+        event.type === 'client.error'
+      ) {
+        // Re-dispatch the original event type
+        self.dispatch(event.type, event);
+      }
     }
 
     function handleServerEvent(event: Event) {

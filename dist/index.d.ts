@@ -612,6 +612,7 @@ interface ItemContentDelta {
     audio?: Int16Array;
     arguments?: string;
     transcript?: string;
+    output?: string;
 }
 /**
  * Manages the state and events of a realtime conversation.

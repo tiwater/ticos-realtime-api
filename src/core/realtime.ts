@@ -94,8 +94,12 @@ export class RealtimeAPI extends RealtimeEventHandler {
       ws.addEventListener('message', (event) => {
         try {
           const data = JSON.parse(event.data as string);
+          // Only log if debug mode is enabled
           if (this.debug) {
-            console.log('Received:', data);
+            // Don't log sensitive data in debug messages
+            const sanitizedData = { ...data };
+            if (sanitizedData.api_key) sanitizedData.api_key = '[REDACTED]';
+            console.log('Received:', sanitizedData);
           }
           if (data.type) {
             this.receive(data.type, data);
@@ -232,34 +236,48 @@ export class RealtimeAPI extends RealtimeEventHandler {
     if (!this.isConnected()) {
       // Instead of queuing, just fail if not connected
       if (this.debug) {
-        console.warn('Not connected, cannot send message:', type);
+        console.warn(`Not connected, cannot send message of type: ${type}`);
       }
       return false;
     }
 
-    const event_id = RealtimeUtils.generateId('evt_');
+    try {
+      const event_id = RealtimeUtils.generateId('evt_');
 
-    // Create the event to send to the server
-    const event = {
-      event_id,
-      type,
-      ...payload,
-    };
+      // Create the event to send to the server
+      const event = {
+        event_id,
+        type,
+        ...payload,
+      };
 
-    if (this.debug) {
-      console.log('Sending:', event);
+      if (this.debug) {
+        // Sanitize sensitive data for logging
+        const sanitizedEvent = { ...event };
+        // Use a type assertion to handle potential dynamic properties
+        const sanitized = sanitizedEvent as Record<string, any>;
+
+        if (sanitized.api_key) sanitized.api_key = '[REDACTED]';
+        if (type === 'session.update' && sanitized.session?.apiKey) {
+          sanitized.session.apiKey = '[REDACTED]';
+        }
+        console.log('Sending:', sanitizedEvent);
+      }
+
+      this.ws!.send(JSON.stringify(event));
+
+      // Dispatch with client. prefix only - no client.* to avoid duplicates
+      this.dispatch(`client.${type}`, {
+        type: `client.${type}`,
+        event_id,
+        ...payload,
+      } as RealtimeEvent);
+
+      return true;
+    } catch (error) {
+      console.error(`Error sending message of type ${type}:`, error);
+      return false;
     }
-
-    this.ws!.send(JSON.stringify(event));
-
-    // Dispatch with client. prefix only - no client.* to avoid duplicates
-    this.dispatch(`client.${type}`, {
-      type: `client.${type}`,
-      event_id,
-      ...payload,
-    } as RealtimeEvent);
-
-    return true;
   }
 
   /**

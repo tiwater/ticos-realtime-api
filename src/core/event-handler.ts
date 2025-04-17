@@ -154,21 +154,22 @@ export class RealtimeEventHandler {
     eventName: string,
     timeout: number | null = null
   ): Promise<T | null> {
-    const t0 = Date.now();
-    let nextEvent: T | undefined;
-    this.onNext<T>(eventName, (event) => (nextEvent = event));
+    return new Promise<T | null>((resolve) => {
+      let timeoutId: NodeJS.Timeout | null = null;
 
-    while (!nextEvent) {
-      if (timeout !== null) {
-        const t1 = Date.now();
-        if (t1 - t0 > timeout) {
-          return null;
-        }
+      // Setup timeout if provided
+      if (timeout !== null && timeout > 0) {
+        timeoutId = setTimeout(() => {
+          resolve(null);
+        }, timeout);
       }
-      await sleep(1);
-    }
 
-    return nextEvent;
+      // Register the event handler
+      this.onNext<T>(eventName, (event) => {
+        if (timeoutId) clearTimeout(timeoutId);
+        resolve(event);
+      });
+    });
   }
 
   /**
@@ -180,18 +181,27 @@ export class RealtimeEventHandler {
    * @returns {boolean} Always returns true
    */
   public dispatch<T extends Event>(eventName: string, event: T): boolean {
+    // Helper function to safely execute handlers
+    const safeExecute = (handler: EventHandlerCallbackType, event: T) => {
+      try {
+        handler(event);
+      } catch (error) {
+        console.error(`Error in event handler for '${eventName}':`, error);
+      }
+    };
+
     // Process exact matches first
     if (this.eventHandlers[eventName]) {
       const handlers = [...this.eventHandlers[eventName]];
       for (const handler of handlers) {
-        handler(event);
+        safeExecute(handler, event);
       }
     }
 
     if (this.nextEventHandlers[eventName]) {
       const nextHandlers = [...this.nextEventHandlers[eventName]];
       for (const nextHandler of nextHandlers) {
-        nextHandler(event);
+        safeExecute(nextHandler, event);
       }
       delete this.nextEventHandlers[eventName];
     }
@@ -201,7 +211,7 @@ export class RealtimeEventHandler {
       if (pattern !== eventName && matchesPattern(pattern, eventName)) {
         const handlers = [...this.eventHandlers[pattern]];
         for (const handler of handlers) {
-          handler(event);
+          safeExecute(handler, event);
         }
       }
     }
@@ -210,7 +220,7 @@ export class RealtimeEventHandler {
       if (pattern !== eventName && matchesPattern(pattern, eventName)) {
         const nextHandlers = [...this.nextEventHandlers[pattern]];
         for (const nextHandler of nextHandlers) {
-          nextHandler(event);
+          safeExecute(nextHandler, event);
         }
         delete this.nextEventHandlers[pattern];
       }
