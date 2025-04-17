@@ -1,7 +1,7 @@
 import { RealtimeEventHandler } from './event-handler';
 import { RealtimeAPI } from './realtime';
 import { RealtimeConversation } from './conversation';
-import type { ClientOptions, ToolDefinition, RealtimeConfig } from '../types/client';  
+import type { ClientOptions, ToolDefinition, RealtimeConfig } from '../types/client';
 import type { ItemType, Content } from '../types/conversation';
 import { RealtimeUtils } from '../utils';
 import { Event, ItemEvent, RealtimeEvent } from '../types/events';
@@ -24,6 +24,7 @@ export class RealtimeClient extends RealtimeEventHandler {
   protected conversation: RealtimeConversation;
   protected tools: Record<string, { definition: ToolDefinition; handler: Function }> = {};
   protected inputAudioBuffer: Int16Array = new Int16Array(0);
+  protected sessionCreated: boolean = false;
   protected config: RealtimeConfig = {
     model: {
       provider: 'tiwater',
@@ -52,71 +53,118 @@ export class RealtimeClient extends RealtimeEventHandler {
     },
     knowledge: {
       scripts: [],
-    }
+    },
   };
+  private _configWithMethods: any;
 
   /**
    * Creates a new RealtimeClient instance.
-   * 
+   *
    * @param {ClientOptions} [settings] - Configuration settings for the client
-   * @param {RealtimeConfig} [config] - Optional configuration settings
+   * @param {RealtimeConfig | any} [config] - Optional configuration settings or config object with methods
    */
-  constructor(
-    settings?: ClientOptions,
-    config?: Partial<RealtimeConfig>
-  ) {
+  constructor(settings?: ClientOptions, config?: Partial<RealtimeConfig> | any) {
     super();
     // Apply default settings if none provided
-    const defaultSettings: ClientOptions = { 
-      url: 'wss://stardust.ticos.cn/realtime', 
-      apiKey: '' 
+    const defaultSettings: ClientOptions = {
+      url: 'wss://stardust.ticos.cn/realtime',
+      apiKey: '',
     };
-    
+
     // Merge provided settings with defaults
     const mergedSettings = settings ? { ...defaultSettings, ...settings } : defaultSettings;
-    
-    if (config) {
-      this.updateConfig(config);
-    }
+
     this.realtime = new RealtimeAPI(mergedSettings);
     this.conversation = new RealtimeConversation();
+
+    if (config) {
+      // Handle config object with getSessionPayload method (API compatibility)
+      if (typeof config.getSessionPayload === 'function') {
+        // It's a config object with methods, use its payload
+        const sessionPayload = config.getSessionPayload().session;
+        this.config = sessionPayload || this.config;
+
+        // Store the config object with methods for later use
+        this._configWithMethods = config;
+      } else {
+        // It's a standard config object
+        this.updateConfig(config);
+      }
+    }
+
     this._addAPIEventHandlers();
   }
 
   /**
-   * Sets up event handlers for the API client.
-   * Forwards all events to the client's event system with additional metadata.
-   * 
+   * Listens for all events and forwards them to realtime.event with proper metadata
    * @private
-   * @returns {boolean} Always returns true
    */
-  private _addAPIEventHandlers(): boolean {
-    this.realtime.on('client.*', (event: Event) => {
-      this.dispatch<RealtimeEvent>('realtime.event', {
-        type: 'realtime.event',
+  private _addAPIEventHandlers(): void {
+    const self = this;
+
+    // Add a handler for all client. prefixed events
+    // Manually add listener for all event types rather than using wildcards
+    this.realtime.on('client.connected', handleClientEvent);
+    this.realtime.on('client.disconnected', handleClientEvent);
+    this.realtime.on('client.error', handleClientEvent);
+    this.realtime.on('client.session.update', handleClientEvent);
+    this.realtime.on('client.conversation.item.create', handleClientEvent);
+    this.realtime.on('client.response.create', handleClientEvent);
+    this.realtime.on('client.response.cancel', handleClientEvent);
+    this.realtime.on('client.input_audio_buffer.append', handleClientEvent);
+    this.realtime.on('client.input_audio_buffer.commit', handleClientEvent);
+    this.realtime.on('client.conversation.item.truncate', handleClientEvent);
+    this.realtime.on('client.tool.register', handleClientEvent);
+    this.realtime.on('client.tool.response', handleClientEvent);
+    this.realtime.on('client.tool.error', handleClientEvent);
+
+    // Add a handler for all server. prefixed events
+    // Manually add listener for common event types rather than using wildcards
+    this.realtime.on('server.session.created', (event: Event) => {
+      handleServerEvent(event);
+      this.sessionCreated = true;
+    });
+    this.realtime.on('server.session.update', handleServerEvent);
+    this.realtime.on('server.conversation.created', handleServerEvent);
+    this.realtime.on('server.conversation.updated', handleServerEvent);
+    this.realtime.on('server.conversation.item.created', handleServerEvent);
+    this.realtime.on('server.conversation.item.truncated', handleServerEvent);
+    this.realtime.on('server.conversation.item.deleted', handleServerEvent);
+    this.realtime.on('server.response.created', handleServerEvent);
+    this.realtime.on('server.response.output_item.added', handleServerEvent);
+    this.realtime.on('server.response.content_part.added', handleServerEvent);
+    this.realtime.on('server.response.text.delta', handleServerEvent);
+    this.realtime.on('server.response.audio.delta', handleServerEvent);
+    this.realtime.on('server.input_audio_buffer.speech_started', handleServerEvent);
+    this.realtime.on('server.input_audio_buffer.speech_stopped', handleServerEvent);
+    this.realtime.on('server.tool.call', handleServerEvent);
+
+    function handleClientEvent(event: Event) {
+      const realtimeEvent = {
         time: new Date().toISOString(),
         source: 'client',
         event: event,
-      });
-    });
-
-    this.realtime.on('server.*', (event: Event) => {
-      this.dispatch<RealtimeEvent>('realtime.event', {
         type: 'realtime.event',
+      };
+      self.dispatch('realtime.event', realtimeEvent);
+    }
+
+    function handleServerEvent(event: Event) {
+      const realtimeEvent = {
         time: new Date().toISOString(),
         source: 'server',
         event: event,
-      });
-    });
-
-    return true;
+        type: 'realtime.event',
+      };
+      self.dispatch('realtime.event', realtimeEvent);
+    }
   }
 
   /**
    * Establishes a connection to the Realtime API server.
-   * 
+   *
    * @returns {Promise<void>} Resolves when the connection is established
-   * 
+   *
    * @example
    * ```typescript
    * await client.connect();
@@ -128,7 +176,7 @@ export class RealtimeClient extends RealtimeEventHandler {
 
   /**
    * Closes the connection to the Realtime API server.
-   * 
+   *
    * @example
    * ```typescript
    * client.disconnect();
@@ -140,7 +188,7 @@ export class RealtimeClient extends RealtimeEventHandler {
 
   /**
    * Checks if the client is currently connected to the server.
-   * 
+   *
    * @returns {boolean} True if connected, false otherwise
    */
   public isConnected(): boolean {
@@ -150,7 +198,7 @@ export class RealtimeClient extends RealtimeEventHandler {
   /**
    * Updates the session configuration on the server.
    * Called internally when configuration or tools change.
-   * 
+   *
    * @protected
    */
   protected updateSession(): void {
@@ -161,7 +209,7 @@ export class RealtimeClient extends RealtimeEventHandler {
 
   /**
    * Returns the current conversation items.
-   * 
+   *
    * @returns {ItemType[]} The current conversation items
    */
   public getConversationItems(): ItemType[] {
@@ -170,11 +218,11 @@ export class RealtimeClient extends RealtimeEventHandler {
 
   /**
    * Registers a new tool that can be used during conversations.
-   * 
+   *
    * @param {ToolDefinition} definition - Tool definition including name and description
    * @param {Function} handler - Function to execute when the tool is called
    * @throws {Error} If the tool definition doesn't have a name
-   * 
+   *
    * @example
    * ```typescript
    * client.registerTool({
@@ -187,16 +235,16 @@ export class RealtimeClient extends RealtimeEventHandler {
     if (!definition.name) {
       throw new Error('Tool definition must have a name');
     }
-    
+
     this.tools[definition.name] = { definition, handler };
     this.realtime.registerTool(definition.name, definition);
   }
 
   /**
    * Removes a registered tool.
-   * 
+   *
    * @param {string} name - Name of the tool to unregister
-   * 
+   *
    * @example
    * ```typescript
    * client.unregisterTool('calculate');
@@ -212,12 +260,12 @@ export class RealtimeClient extends RealtimeEventHandler {
 
   /**
    * Executes a registered tool with the provided arguments.
-   * 
+   *
    * @param {string} name - Name of the tool to execute
    * @param {Record<string, any>} args - Arguments to pass to the tool
    * @returns {Promise<any>} Result of the tool execution
    * @throws {Error} If the tool is not registered
-   * 
+   *
    * @example
    * ```typescript
    * const result = await client.executeTool('calculate', { expression: '2 + 2' });
@@ -228,7 +276,7 @@ export class RealtimeClient extends RealtimeEventHandler {
     if (!this.tools[name]) {
       throw new Error(`Tool "${name}" is not registered`);
     }
-    
+
     try {
       const result = await this.tools[name].handler(args);
       return result;
@@ -240,9 +288,9 @@ export class RealtimeClient extends RealtimeEventHandler {
 
   /**
    * Waits for the next item to be added to the conversation.
-   * 
+   *
    * @returns {Promise<{ item: ItemType | null }>} The next conversation item or null
-   * 
+   *
    * @example
    * ```typescript
    * const { item } = await client.waitForNextItem();
@@ -259,9 +307,9 @@ export class RealtimeClient extends RealtimeEventHandler {
 
   /**
    * Waits for the next item to be completed in the conversation.
-   * 
+   *
    * @returns {Promise<{ item: ItemType | null }>} The completed conversation item or null
-   * 
+   *
    * @example
    * ```typescript
    * const { item } = await client.waitForNextCompletedItem();
@@ -334,9 +382,8 @@ export class RealtimeClient extends RealtimeEventHandler {
    * @param {string} name - Name of the tool to remove
    */
   public removeTool(name: string): void {
-    this.config.model.tools = this.config.model?.tools?.filter(
-      (tool: ToolDefinition) => tool.name !== name
-    ) || [];
+    this.config.model.tools =
+      this.config.model?.tools?.filter((tool: ToolDefinition) => tool.name !== name) || [];
     this.updateSession();
   }
 
@@ -345,13 +392,13 @@ export class RealtimeClient extends RealtimeEventHandler {
    * @returns {ToolDefinition[]} Array of tool definitions
    */
   public getTools(): ToolDefinition[] {
-    return [...this.config.model?.tools || []];
+    return [...(this.config.model?.tools || [])];
   }
 
   /**
    * Resets the client to its initial state.
    * Clears all configuration and registered tools.
-   * 
+   *
    * @example
    * ```typescript
    * client.reset();
@@ -387,40 +434,80 @@ export class RealtimeClient extends RealtimeEventHandler {
       },
       knowledge: {
         scripts: [],
-      }
+      },
     };
     this.updateSession();
   }
 
   /**
-   * Gets the turn detection type
+   * Gets the turn detection type from config
    * @returns {string | null} Turn detection type or null
    */
   public getTurnDetectionType(): string | null {
+    // Check for config with methods first
+    if (
+      this._configWithMethods &&
+      typeof this._configWithMethods.getTurnDetectionType === 'function'
+    ) {
+      return this._configWithMethods.getTurnDetectionType();
+    }
+
+    // Otherwise use the config object
     return this.config.hearing?.turn_detection || null;
   }
 
   /**
-   * Sends user message content and generates a response
-   * @param {Array<Content>} content - Array of content to send (text, audio, etc.)
-   * @returns {boolean} Always returns true
+   * Send user message content to the realtime service
+   * @param {Content[]} content - Content for the message
+   * @returns {boolean} True if message was sent successfully
    */
-  public sendUserMessageContent(content: Content[] = []): boolean {
+  public sendUserMessageContent(content: Content[]): boolean {
     if (content.length) {
-      for (const c of content) {
-        if (c.type === 'audio' && typeof c.audio !== 'string') {
-          c.audio = RealtimeUtils.arrayBufferToBase64(c.audio);
+      const normalizedContent: Content[] = content.map((c: any) => {
+        const contentCopy = { ...c };
+
+        // Convert input_text to text
+        if (contentCopy.type === 'input_text' && 'input_text' in contentCopy) {
+          return {
+            type: 'text' as const,
+            text: contentCopy.input_text,
+          };
         }
-      }
+
+        // Convert input_audio to audio
+        if (contentCopy.type === 'input_audio' && 'input_audio' in contentCopy) {
+          const audioContent = contentCopy.input_audio;
+          return {
+            type: 'audio' as const,
+            audio:
+              typeof audioContent === 'string'
+                ? audioContent
+                : RealtimeUtils.arrayBufferToBase64(audioContent),
+          };
+        }
+
+        // Handle base64 conversion for audio content if needed
+        if (contentCopy.type === 'audio' && 'audio' in contentCopy) {
+          if (contentCopy.audio instanceof ArrayBuffer || ArrayBuffer.isView(contentCopy.audio)) {
+            contentCopy.audio = RealtimeUtils.arrayBufferToBase64(contentCopy.audio);
+          }
+        }
+
+        return contentCopy;
+      });
+
+      // Send the message to the realtime service
       this.realtime.send('conversation.item.create', {
         item: {
           type: 'message',
           role: 'user',
-          content,
+          content: normalizedContent,
         },
       });
+
+      this.createResponse();
     }
-    this.createResponse();
+
     return true;
   }
 
@@ -434,10 +521,7 @@ export class RealtimeClient extends RealtimeEventHandler {
       this.realtime.send('input_audio_buffer.append', {
         audio: RealtimeUtils.arrayBufferToBase64(arrayBuffer),
       });
-      this.inputAudioBuffer = RealtimeUtils.mergeInt16Arrays(
-        this.inputAudioBuffer,
-        arrayBuffer,
-      );
+      this.inputAudioBuffer = RealtimeUtils.mergeInt16Arrays(this.inputAudioBuffer, arrayBuffer);
     }
     return true;
   }
@@ -447,10 +531,7 @@ export class RealtimeClient extends RealtimeEventHandler {
    * @returns {boolean} Always returns true
    */
   public createResponse(): boolean {
-    if (
-      this.config.hearing.turn_detection === null &&
-      this.inputAudioBuffer.byteLength > 0
-    ) {
+    if (this.config.hearing.turn_detection === null && this.inputAudioBuffer.byteLength > 0) {
       this.realtime.send('input_audio_buffer.commit');
       this.conversation.queueInputAudio(this.inputAudioBuffer);
       this.inputAudioBuffer = new Int16Array(0);
@@ -488,9 +569,7 @@ export class RealtimeClient extends RealtimeEventHandler {
       this.realtime.send('conversation.item.truncate', {
         item_id: id,
         content_index: audioIndex,
-        audio_end_ms: Math.floor(
-          (sampleCount / this.conversation.defaultFrequency) * 1000,
-        ),
+        audio_end_ms: Math.floor((sampleCount / this.conversation.defaultFrequency) * 1000),
       });
       return { item };
     }
@@ -503,6 +582,6 @@ export class RealtimeClient extends RealtimeEventHandler {
    * @returns {ItemType | undefined} The found item or undefined
    */
   private getConversationItem(id: string): ItemType | undefined {
-    return this.conversation.getItems().find(item => item.id === id);
+    return this.conversation.getItems().find((item) => item.id === id);
   }
 }

@@ -408,14 +408,14 @@ declare class RealtimeEventHandler {
     clearEventHandlers(): boolean;
     /**
      * Listen to specific events
-     * @param {string} eventName The name of the event to listen to
+     * @param {string} eventName The name of the event to listen to (supports wildcards with '*')
      * @param {EventHandlerCallbackType<T>} callback Code to execute on event
      * @returns {EventHandlerCallbackType<T>} The callback function
      */
     on<T extends Event = Event>(eventName: string, callback: EventHandlerCallbackType<T>): EventHandlerCallbackType<T>;
     /**
      * Listen for the next event of a specified type
-     * @param {string} eventName The name of the event to listen to
+     * @param {string} eventName The name of the event to listen to (supports wildcards with '*')
      * @param {EventHandlerCallbackType<T>} callback Code to execute on event
      * @returns {EventHandlerCallbackType<T>} The callback function
      */
@@ -445,6 +445,8 @@ declare class RealtimeEventHandler {
     waitForNext<T extends Event = Event>(eventName: string, timeout?: number | null): Promise<T | null>;
     /**
      * Executes all events in the order they were added, with .on() event handlers executing before .onNext() handlers
+     * Supports wildcard patterns for event names using '*'
+     *
      * @param {string} eventName Event name to dispatch
      * @param {T} event Event data to pass to handlers
      * @returns {boolean} Always returns true
@@ -482,8 +484,6 @@ declare class RealtimeAPI extends RealtimeEventHandler {
     private debug;
     /** Connection status */
     private connected;
-    /** Pending message queue for messages sent before connection is established */
-    private pendingMessages;
     /**
      * Creates a new RealtimeAPI instance.
      *
@@ -528,12 +528,21 @@ declare class RealtimeAPI extends RealtimeEventHandler {
      */
     isConnected(): boolean;
     /**
+     * Receives an event from WebSocket and dispatches the raw event
+     *
+     * @param {string} eventName - Event name
+     * @param {Record<string, any>} event - Event data
+     * @returns {boolean} Always returns true
+     * @private
+     */
+    private receive;
+    /**
      * Sends a message to the server.
-     * If not connected, the message will be queued and sent when the connection is established.
+     * If not connected, the message will fail rather than being queued.
      *
      * @param {string} type - Message type
      * @param {Record<string, any>} payload - Message payload
-     * @returns {boolean} True if sent immediately, false if queued
+     * @returns {boolean} True if sent successfully, false if failed
      *
      * @example
      * ```typescript
@@ -592,15 +601,6 @@ declare class RealtimeAPI extends RealtimeEventHandler {
      * ```
      */
     sendToolError(toolCallId: string, error: string): boolean;
-    /**
-     * Receives an event from WebSocket and dispatches as "server.{eventName}" and "server.*" events
-     *
-     * @param {string} eventName - Event name
-     * @param {Record<string, any>} event - Event data
-     * @returns {boolean} Always returns true
-     * @private
-     */
-    private receive;
 }
 
 /**
@@ -695,20 +695,19 @@ declare class RealtimeClient extends RealtimeEventHandler {
         handler: Function;
     }>;
     protected inputAudioBuffer: Int16Array;
+    protected sessionCreated: boolean;
     protected config: RealtimeConfig;
+    private _configWithMethods;
     /**
      * Creates a new RealtimeClient instance.
      *
      * @param {ClientOptions} [settings] - Configuration settings for the client
-     * @param {RealtimeConfig} [config] - Optional configuration settings
+     * @param {RealtimeConfig | any} [config] - Optional configuration settings or config object with methods
      */
-    constructor(settings?: ClientOptions, config?: Partial<RealtimeConfig>);
+    constructor(settings?: ClientOptions, config?: Partial<RealtimeConfig> | any);
     /**
-     * Sets up event handlers for the API client.
-     * Forwards all events to the client's event system with additional metadata.
-     *
+     * Listens for all events and forwards them to realtime.event with proper metadata
      * @private
-     * @returns {boolean} Always returns true
      */
     private _addAPIEventHandlers;
     /**
@@ -858,16 +857,16 @@ declare class RealtimeClient extends RealtimeEventHandler {
      */
     reset(): void;
     /**
-     * Gets the turn detection type
+     * Gets the turn detection type from config
      * @returns {string | null} Turn detection type or null
      */
     getTurnDetectionType(): string | null;
     /**
-     * Sends user message content and generates a response
-     * @param {Array<Content>} content - Array of content to send (text, audio, etc.)
-     * @returns {boolean} Always returns true
+     * Send user message content to the realtime service
+     * @param {Content[]} content - Content for the message
+     * @returns {boolean} True if message was sent successfully
      */
-    sendUserMessageContent(content?: Content[]): boolean;
+    sendUserMessageContent(content: Content[]): boolean;
     /**
      * Appends user audio to the existing audio buffer
      * @param {Int16Array | ArrayBuffer} arrayBuffer - Audio data to append

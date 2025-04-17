@@ -11,6 +11,27 @@ type EventHandlerCallbackType<T extends Event = Event> = (event: T) => void;
 const sleep = (t: number): Promise<void> => new Promise<void>((r) => setTimeout(() => r(), t));
 
 /**
+ * Checks if an event name matches a pattern
+ * Supports '*' as a wildcard at the end of the pattern
+ *
+ * @param {string} pattern The pattern to match against
+ * @param {string} eventName The event name to check
+ * @returns {boolean} True if the event name matches the pattern
+ */
+const matchesPattern = (pattern: string, eventName: string): boolean => {
+  if (pattern === '*') {
+    return true; // Global wildcard matches everything
+  }
+
+  if (pattern.endsWith('.*')) {
+    const prefix = pattern.slice(0, -2);
+    return eventName.startsWith(prefix + '.');
+  }
+
+  return pattern === eventName;
+};
+
+/**
  * Base class for handling real-time events
  * Provides methods for subscribing to events, handling them once, and waiting for specific events.
  * Used by RealtimeAPI and RealtimeClient classes.
@@ -41,11 +62,14 @@ export class RealtimeEventHandler {
 
   /**
    * Listen to specific events
-   * @param {string} eventName The name of the event to listen to
+   * @param {string} eventName The name of the event to listen to (supports wildcards with '*')
    * @param {EventHandlerCallbackType<T>} callback Code to execute on event
    * @returns {EventHandlerCallbackType<T>} The callback function
    */
-  public on<T extends Event = Event>(eventName: string, callback: EventHandlerCallbackType<T>): EventHandlerCallbackType<T> {
+  public on<T extends Event = Event>(
+    eventName: string,
+    callback: EventHandlerCallbackType<T>
+  ): EventHandlerCallbackType<T> {
     this.eventHandlers[eventName] = this.eventHandlers[eventName] || [];
     // Type assertion needed because we're storing callbacks for different event types in the same array
     this.eventHandlers[eventName].push(callback as EventHandlerCallbackType);
@@ -54,11 +78,14 @@ export class RealtimeEventHandler {
 
   /**
    * Listen for the next event of a specified type
-   * @param {string} eventName The name of the event to listen to
+   * @param {string} eventName The name of the event to listen to (supports wildcards with '*')
    * @param {EventHandlerCallbackType<T>} callback Code to execute on event
    * @returns {EventHandlerCallbackType<T>} The callback function
    */
-  public onNext<T extends Event = Event>(eventName: string, callback: EventHandlerCallbackType<T>): EventHandlerCallbackType<T> {
+  public onNext<T extends Event = Event>(
+    eventName: string,
+    callback: EventHandlerCallbackType<T>
+  ): EventHandlerCallbackType<T> {
     this.nextEventHandlers[eventName] = this.nextEventHandlers[eventName] || [];
     // Type assertion needed because we're storing callbacks for different event types in the same array
     this.nextEventHandlers[eventName].push(callback as EventHandlerCallbackType);
@@ -72,7 +99,10 @@ export class RealtimeEventHandler {
    * @param {EventHandlerCallbackType<T>} [callback] Optional specific callback to remove
    * @returns {boolean} Always returns true
    */
-  public off<T extends Event = Event>(eventName: string, callback?: EventHandlerCallbackType<T>): boolean {
+  public off<T extends Event = Event>(
+    eventName: string,
+    callback?: EventHandlerCallbackType<T>
+  ): boolean {
     const handlers = this.eventHandlers[eventName] || [];
     if (callback) {
       const index = handlers.indexOf(callback as EventHandlerCallbackType);
@@ -95,7 +125,10 @@ export class RealtimeEventHandler {
    * @param {EventHandlerCallbackType<T>} [callback] Optional specific callback to remove
    * @returns {boolean} Always returns true
    */
-  public offNext<T extends Event = Event>(eventName: string, callback?: EventHandlerCallbackType<T>): boolean {
+  public offNext<T extends Event = Event>(
+    eventName: string,
+    callback?: EventHandlerCallbackType<T>
+  ): boolean {
     const nextHandlers = this.nextEventHandlers[eventName] || [];
     if (callback) {
       const index = nextHandlers.indexOf(callback as EventHandlerCallbackType);
@@ -117,11 +150,14 @@ export class RealtimeEventHandler {
    * @param {number|null} [timeout=null] Optional timeout in milliseconds
    * @returns {Promise<T|null>} Promise that resolves with the event data or null if timed out
    */
-  public async waitForNext<T extends Event = Event>(eventName: string, timeout: number | null = null): Promise<T | null> {
+  public async waitForNext<T extends Event = Event>(
+    eventName: string,
+    timeout: number | null = null
+  ): Promise<T | null> {
     const t0 = Date.now();
     let nextEvent: T | undefined;
     this.onNext<T>(eventName, (event) => (nextEvent = event));
-    
+
     while (!nextEvent) {
       if (timeout !== null) {
         const t1 = Date.now();
@@ -131,34 +167,55 @@ export class RealtimeEventHandler {
       }
       await sleep(1);
     }
-    
+
     return nextEvent;
   }
 
   /**
    * Executes all events in the order they were added, with .on() event handlers executing before .onNext() handlers
+   * Supports wildcard patterns for event names using '*'
+   *
    * @param {string} eventName Event name to dispatch
    * @param {T} event Event data to pass to handlers
    * @returns {boolean} Always returns true
    */
   public dispatch<T extends Event>(eventName: string, event: T): boolean {
-    const handlers = Array.isArray(this.eventHandlers[eventName]) 
-      ? [...this.eventHandlers[eventName]] 
-      : [];
-      
-    for (const handler of handlers) {
-      handler(event);
+    // Process exact matches first
+    if (this.eventHandlers[eventName]) {
+      const handlers = [...this.eventHandlers[eventName]];
+      for (const handler of handlers) {
+        handler(event);
+      }
     }
-    
-    const nextHandlers = Array.isArray(this.nextEventHandlers[eventName]) 
-      ? [...this.nextEventHandlers[eventName]] 
-      : [];
-      
-    for (const nextHandler of nextHandlers) {
-      nextHandler(event);
+
+    if (this.nextEventHandlers[eventName]) {
+      const nextHandlers = [...this.nextEventHandlers[eventName]];
+      for (const nextHandler of nextHandlers) {
+        nextHandler(event);
+      }
+      delete this.nextEventHandlers[eventName];
     }
-    
-    delete this.nextEventHandlers[eventName];
+
+    // Then process wildcard patterns
+    for (const pattern in this.eventHandlers) {
+      if (pattern !== eventName && matchesPattern(pattern, eventName)) {
+        const handlers = [...this.eventHandlers[pattern]];
+        for (const handler of handlers) {
+          handler(event);
+        }
+      }
+    }
+
+    for (const pattern in this.nextEventHandlers) {
+      if (pattern !== eventName && matchesPattern(pattern, eventName)) {
+        const nextHandlers = [...this.nextEventHandlers[pattern]];
+        for (const nextHandler of nextHandlers) {
+          nextHandler(event);
+        }
+        delete this.nextEventHandlers[pattern];
+      }
+    }
+
     return true;
   }
 }

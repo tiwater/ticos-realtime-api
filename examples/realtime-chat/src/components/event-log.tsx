@@ -66,11 +66,11 @@ export function EventLog() {
                     key={event.id}
                     value={event.id}
                     className={cn(
-                      'text-xs rounded border shadow-sm',
+                      'text-xs rounded border',
                       event.source === 'server'
-                        ? 'bg-green-400/20 border-green-300/20'
+                        ? ''
                         : event.source === 'client'
-                          ? 'bg-blue-400/20 border-blue-300/20'
+                          ? 'bg-green-400/10 border-green-400/10'
                           : 'bg-red-50 border-red-200'
                     )}
                   >
@@ -78,9 +78,9 @@ export function EventLog() {
                       className={cn(
                         'py-2 px-3 hover:no-underline',
                         event.source === 'server'
-                          ? 'text-green-700'
+                          ? 'text-blue-700'
                           : event.source === 'client'
-                            ? 'text-blue-700'
+                            ? 'text-green-700'
                             : 'text-red-700'
                       )}
                     >
@@ -91,7 +91,7 @@ export function EventLog() {
                           {event.count && event.count > 1 && (
                             <Badge
                               variant="outline"
-                              className="text-xs py-0.5 border-brand/40 bg-brand/80 text-white"
+                              className="text-xs py-0 border-green-400/40 bg-green-700/50 text-white"
                             >
                               {event.count}
                             </Badge>

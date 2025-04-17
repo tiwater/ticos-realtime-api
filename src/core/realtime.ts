@@ -2,6 +2,7 @@ import { RealtimeEventHandler } from './event-handler';
 import type { WebSocket as WSType } from 'ws';
 import type { ClientOptions } from '../types/client';
 import { RealtimeUtils } from '../utils';
+import type { Event as RealtimeEvent } from '../types/events';
 
 /** Type alias for WebSocket instances that works in both Node.js and browser environments */
 type WebSocketType = WSType | WebSocket;
@@ -9,16 +10,16 @@ type WebSocketType = WSType | WebSocket;
 /**
  * Main client for interacting with the Realtime API.
  * Provides WebSocket-based communication with real-time capabilities.
- * 
+ *
  * @class RealtimeAPI
- * 
+ *
  * @example
  * ```typescript
  * const api = new RealtimeAPI({
  *   url: 'wss://stardust.ticos.cn/realtime',
  *   apiKey: 'your-api-key'
  * });
- * 
+ *
  * await api.connect();
  * api.send('message', { text: 'Hello!' });
  * ```
@@ -36,12 +37,10 @@ export class RealtimeAPI extends RealtimeEventHandler {
   private debug: boolean = false;
   /** Connection status */
   private connected: boolean = false;
-  /** Pending message queue for messages sent before connection is established */
-  private pendingMessages: Array<{ type: string; payload: any }> = [];
 
   /**
    * Creates a new RealtimeAPI instance.
-   * 
+   *
    * @param {ClientOptions} settings - Configuration settings for the client
    * @throws {Error} If API key is provided in browser without explicit permission
    */
@@ -62,10 +61,10 @@ export class RealtimeAPI extends RealtimeEventHandler {
 
   /**
    * Establishes a WebSocket connection to the Realtime API server.
-   * 
+   *
    * @returns {Promise<void>} Resolves when the connection is established
    * @throws {Error} If connection fails
-   * 
+   *
    * @example
    * ```typescript
    * await api.connect();
@@ -109,23 +108,18 @@ export class RealtimeAPI extends RealtimeEventHandler {
       ws.addEventListener('open', () => {
         this.connected = true;
         this.ws = ws;
+        // Only dispatch prefixed events to match JS SDK
         this.dispatch('client.connected', {
-          type: 'client.connected'
+          type: 'client.connected',
         });
-
-        // Send any pending messages
-        for (const message of this.pendingMessages) {
-          this.send(message.type, message.payload);
-        }
-        this.pendingMessages = [];
-
         resolve();
       });
 
       ws.addEventListener('error', (error) => {
-        this.dispatch('client.error', { 
+        // Only dispatch prefixed events to match JS SDK
+        this.dispatch('client.error', {
           type: 'client.error',
-          error 
+          error,
         });
         reject(error);
       });
@@ -133,42 +127,33 @@ export class RealtimeAPI extends RealtimeEventHandler {
       ws.addEventListener('close', () => {
         this.connected = false;
         this.ws = null;
+        // Only dispatch prefixed events to match JS SDK
         this.dispatch('client.disconnected', {
-          type: 'client.disconnected'
+          type: 'client.disconnected',
         });
       });
 
       // Handle Node.js specific WebSocket options
       if (typeof process !== 'undefined' && !globalThis.document) {
-        (ws as any).on(
-          'upgrade',
-          (response: any, socket: any, head: any) => {
-            if (this.debug) {
-              console.log('Upgrade headers:', response.headers);
-            }
+        (ws as any).on('upgrade', (response: any, socket: any, head: any) => {
+          if (this.debug) {
+            console.log('Upgrade headers:', response.headers);
           }
-        );
+        });
 
-        (ws as any).on(
-          'unexpected-response',
-          (request: any, response: any) => {
-            if (this.debug) {
-              console.log('Unexpected response:', response.statusCode);
-            }
-            reject(
-              new Error(
-                `Unexpected response: ${response.statusCode}`
-              )
-            );
+        (ws as any).on('unexpected-response', (request: any, response: any) => {
+          if (this.debug) {
+            console.log('Unexpected response:', response.statusCode);
           }
-        );
+          reject(new Error(`Unexpected response: ${response.statusCode}`));
+        });
       }
     });
   }
 
   /**
    * Closes the WebSocket connection.
-   * 
+   *
    * @example
    * ```typescript
    * api.disconnect();
@@ -185,9 +170,9 @@ export class RealtimeAPI extends RealtimeEventHandler {
 
   /**
    * Checks if the client is currently connected to the server.
-   * 
+   *
    * @returns {boolean} True if connected, false otherwise
-   * 
+   *
    * @example
    * ```typescript
    * if (api.isConnected()) {
@@ -200,13 +185,44 @@ export class RealtimeAPI extends RealtimeEventHandler {
   }
 
   /**
+   * Receives an event from WebSocket and dispatches the raw event
+   *
+   * @param {string} eventName - Event name
+   * @param {Record<string, any>} event - Event data
+   * @returns {boolean} Always returns true
+   * @private
+   */
+  private receive(eventName: string, event: Record<string, any>): boolean {
+    if (this.debug) {
+      console.log(`Received: ${eventName}`, event);
+    }
+
+    // Make a copy to avoid mutations and ensure type property is present
+    const rawEvent = { ...event };
+
+    // If the event doesn't have a type field (it should), add it
+    if (!rawEvent.type) {
+      rawEvent.type = eventName;
+    }
+
+    // In JS SDK, only the prefixed events are dispatched
+    // Dispatch with server. prefix only - no server.* to avoid duplicates
+    this.dispatch(`server.${eventName}`, {
+      type: `server.${eventName}`,
+      ...event,
+    } as RealtimeEvent);
+
+    return true;
+  }
+
+  /**
    * Sends a message to the server.
-   * If not connected, the message will be queued and sent when the connection is established.
-   * 
+   * If not connected, the message will fail rather than being queued.
+   *
    * @param {string} type - Message type
    * @param {Record<string, any>} payload - Message payload
-   * @returns {boolean} True if sent immediately, false if queued
-   * 
+   * @returns {boolean} True if sent successfully, false if failed
+   *
    * @example
    * ```typescript
    * api.send('message', { text: 'Hello!' });
@@ -214,50 +230,45 @@ export class RealtimeAPI extends RealtimeEventHandler {
    */
   public send(type: string, payload: Record<string, any> = {}): boolean {
     if (!this.isConnected()) {
-      this.pendingMessages.push({ type, payload });
+      // Instead of queuing, just fail if not connected
+      if (this.debug) {
+        console.warn('Not connected, cannot send message:', type);
+      }
       return false;
     }
 
+    const event_id = RealtimeUtils.generateId('evt_');
+
+    // Create the event to send to the server
     const event = {
-      event_id: RealtimeUtils.generateId('evt_'),
+      event_id,
       type,
       ...payload,
     };
 
     if (this.debug) {
-      console.log('Sending:', { type, payload });
+      console.log('Sending:', event);
     }
 
     this.ws!.send(JSON.stringify(event));
-    
-    // Create a client event with the appropriate type
-    const clientEvent = {
-      eventType: type,
-      event_id: event.event_id,
-      ...payload
-    };
-    
+
+    // Dispatch with client. prefix only - no client.* to avoid duplicates
     this.dispatch(`client.${type}`, {
       type: `client.${type}`,
-      ...clientEvent
-    });
-    
-    this.dispatch('client.*', {
-      type: 'client.*',
-      originalType: type,
-      ...clientEvent
-    });
-    
+      event_id,
+      ...payload,
+    } as RealtimeEvent);
+
     return true;
   }
 
   /**
    * Registers a tool with the server.
-   * 
+   *
    * @param {string} name - Tool name
    * @param {object} definition - Tool definition
    * @returns {boolean} True if sent immediately, false if queued
-   * 
+   *
    * @example
    * ```typescript
    * api.registerTool('calculator', {
@@ -284,11 +295,11 @@ export class RealtimeAPI extends RealtimeEventHandler {
 
   /**
    * Sends a tool response to the server.
-   * 
+   *
    * @param {string} toolCallId - Tool call ID
    * @param {any} response - Tool response
    * @returns {boolean} True if sent immediately, false if queued
-   * 
+   *
    * @example
    * ```typescript
    * api.sendToolResponse('tool-call-123', { result: 42 });
@@ -303,11 +314,11 @@ export class RealtimeAPI extends RealtimeEventHandler {
 
   /**
    * Sends a tool error to the server.
-   * 
+   *
    * @param {string} toolCallId - Tool call ID
    * @param {string} error - Error message
    * @returns {boolean} True if sent immediately, false if queued
-   * 
+   *
    * @example
    * ```typescript
    * api.sendToolError('tool-call-123', 'Invalid expression');
@@ -318,40 +329,5 @@ export class RealtimeAPI extends RealtimeEventHandler {
       tool_call_id: toolCallId,
       error,
     });
-  }
-
-  /**
-   * Receives an event from WebSocket and dispatches as "server.{eventName}" and "server.*" events
-   * 
-   * @param {string} eventName - Event name
-   * @param {Record<string, any>} event - Event data
-   * @returns {boolean} Always returns true
-   * @private
-   */
-  private receive(eventName: string, event: Record<string, any>): boolean {
-    if (this.debug) {
-      console.log(`Received: ${eventName}`, event);
-    }
-    
-    // Create a server event with the appropriate type
-    const serverEvent = {
-      eventType: eventName,
-      ...Object.entries(event)
-        .filter(([key]) => key !== 'type')
-        .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {})
-    };
-    
-    this.dispatch(`server.${eventName}`, {
-      type: `server.${eventName}`,
-      ...serverEvent
-    });
-    
-    this.dispatch('server.*', {
-      type: 'server.*',
-      originalType: eventName,
-      ...serverEvent
-    });
-    
-    return true;
   }
 }

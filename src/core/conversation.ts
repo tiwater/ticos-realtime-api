@@ -15,13 +15,13 @@ interface ItemContentDelta {
 /**
  * Manages the state and events of a realtime conversation.
  * Handles conversation items, audio queuing, and event processing.
- * 
+ *
  * @class RealtimeConversation
  */
 export class RealtimeConversation {
   /** Default audio sampling frequency in Hz */
   public readonly defaultFrequency: number = 24000;
-  
+
   /** Lookup for items by ID */
   private itemLookup: Record<string, ItemType> = {};
   /** Array of conversation items */
@@ -62,7 +62,7 @@ export class RealtimeConversation {
 
   /**
    * Queues audio data for processing.
-   * 
+   *
    * @param {Int16Array} audio - Audio data to queue
    * @returns {Int16Array} The queued audio data
    */
@@ -77,7 +77,26 @@ export class RealtimeConversation {
    * @param {...any} args - Additional arguments
    * @returns {{ item: ItemType | null, delta: ItemContentDelta | null }} Processed item and delta
    */
-  public processEvent(event: any, ...args: any[]): { item: ItemType | null, delta: ItemContentDelta | null } {
+  public processEvent(
+    event: any,
+    ...args: any[]
+  ): { item: ItemType | null; delta: ItemContentDelta | null } {
+    // Support alternative event formats
+    if (!event.event_id && !event.type) {
+      // Event might be passed as type + payload separately
+      if (typeof args[0] === 'string' && typeof args[1] === 'object') {
+        const eventType = args[0];
+        const eventPayload = args[1];
+        eventPayload.type = eventType;
+
+        // Generate event_id if needed
+        eventPayload.event_id = eventPayload.event_id || RealtimeUtils.generateId('evt_');
+
+        // Process using the normalized event
+        return this.processEvent(eventPayload);
+      }
+    }
+
     if (!event.event_id) {
       console.error(event);
       throw new Error('Missing "event_id" on event');
@@ -86,12 +105,12 @@ export class RealtimeConversation {
       console.error(event);
       throw new Error('Missing "type" on event');
     }
-    
+
     const eventProcessor = this.EventProcessors[event.type];
     if (!eventProcessor) {
       throw new Error(`Missing conversation event processor for "${event.type}"`);
     }
-    
+
     return eventProcessor.call(this, event, ...args);
   }
 
@@ -106,18 +125,21 @@ export class RealtimeConversation {
 
   /**
    * Gets all items in the conversation.
-   * 
+   *
    * @returns {ItemType[]} Array of all conversation items
    */
   public getItems(): ItemType[] {
     return this.items.slice();
   }
-  
+
   /**
    * Event processors for different event types
    * @private
    */
-  private EventProcessors: Record<string, (event: any, ...args: any[]) => { item: ItemType | null, delta: ItemContentDelta | null }> = {
+  private EventProcessors: Record<
+    string,
+    (event: any, ...args: any[]) => { item: ItemType | null; delta: ItemContentDelta | null }
+  > = {
     'conversation.item.created': (event) => {
       const { item } = event;
       // deep copy values
@@ -126,26 +148,26 @@ export class RealtimeConversation {
         this.itemLookup[newItem.id] = newItem;
         this.items.push(newItem);
       }
-      
+
       // Initialize formatted property if it doesn't exist
       if (!newItem.formatted) {
         newItem.formatted = {};
       }
-      
+
       newItem.formatted.audio = new Int16Array(0);
       newItem.formatted.text = '';
       newItem.formatted.transcript = '';
-      
+
       // If we have a speech item, can populate audio
       if (this.queuedSpeechItems[newItem.id]) {
         newItem.formatted.audio = this.queuedSpeechItems[newItem.id].audio;
         delete this.queuedSpeechItems[newItem.id]; // free up some memory
       }
-      
+
       // Populate formatted text if it comes out on creation
       if (newItem.content) {
         const textContent = newItem.content.filter((c: Content) =>
-          ['text', 'input_text'].includes(c.type),
+          ['text', 'input_text'].includes(c.type)
         );
         for (const content of textContent) {
           if (content.type === 'text' || content.type === 'input_text') {
@@ -153,7 +175,7 @@ export class RealtimeConversation {
           }
         }
       }
-      
+
       if (newItem.type === 'message') {
         if (newItem.role === 'user') {
           newItem.status = 'completed';
@@ -176,67 +198,62 @@ export class RealtimeConversation {
         newItem.status = 'completed';
         newItem.formatted.output = newItem.output;
       }
-      
+
       return { item: newItem, delta: null };
     },
-    
+
     'response.audio.delta': (event) => {
       const { item_id, content_index, delta } = event;
       const item = this.itemLookup[item_id];
       if (!item) {
-        console.warn(
-          `response.audio.delta: Item "${item_id}" not found, skipping`,
-        );
+        console.warn(`response.audio.delta: Item "${item_id}" not found, skipping`);
         return { item: null, delta: null };
       } else {
         // Initialize formatted property if it doesn't exist
         if (!item.formatted) {
           item.formatted = {};
         }
-        
+
         // Initialize audio property if it doesn't exist
         if (!item.formatted.audio) {
           item.formatted.audio = new Int16Array(0);
         }
-        
+
         const arrayBuffer = RealtimeUtils.base64ToArrayBuffer(delta);
         const appendValues = new Int16Array(arrayBuffer);
-        item.formatted.audio = RealtimeUtils.mergeInt16Arrays(
-          item.formatted.audio,
-          appendValues,
-        );
+        item.formatted.audio = RealtimeUtils.mergeInt16Arrays(item.formatted.audio, appendValues);
         return { item, delta: { audio: appendValues } };
       }
     },
-    
+
     'response.text.delta': (event) => {
       const { item_id, content_index, delta } = event;
       const item = this.itemLookup[item_id];
       if (!item) {
         throw new Error(`response.text.delta: Item "${item_id}" not found`);
       }
-      
+
       // Initialize formatted property if it doesn't exist
       if (!item.formatted) {
         item.formatted = {};
       }
-      
+
       // Initialize text property if it doesn't exist
       if (!item.formatted.text) {
         item.formatted.text = '';
       }
-      
+
       if (item.content[content_index]) {
         const contentItem = item.content[content_index];
         if (contentItem.type === 'text') {
           contentItem.text += delta;
         }
       }
-      
+
       item.formatted.text += delta;
       return { item, delta: { text: delta } };
     },
-    
+
     'input_audio_buffer.speech_stopped': (event, inputAudioBuffer) => {
       const { item_id, audio_end_ms } = event;
       if (!this.queuedSpeechItems[item_id]) {
@@ -245,17 +262,13 @@ export class RealtimeConversation {
       const speech = this.queuedSpeechItems[item_id];
       speech.audio_end_ms = audio_end_ms;
       if (inputAudioBuffer) {
-        const startIndex = Math.floor(
-          (speech.audio_start_ms * this.defaultFrequency) / 1000,
-        );
-        const endIndex = Math.floor(
-          (speech.audio_end_ms * this.defaultFrequency) / 1000,
-        );
+        const startIndex = Math.floor((speech.audio_start_ms * this.defaultFrequency) / 1000);
+        const endIndex = Math.floor((speech.audio_end_ms * this.defaultFrequency) / 1000);
         speech.audio = inputAudioBuffer.slice(startIndex, endIndex);
       }
       return { item: null, delta: null };
     },
-    
+
     'response.output_item.done': (event) => {
       const { item } = event;
       if (!item) {
@@ -263,12 +276,10 @@ export class RealtimeConversation {
       }
       const foundItem = this.itemLookup[item.id];
       if (!foundItem) {
-        throw new Error(
-          `response.output_item.done: Item "${item.id}" not found`,
-        );
+        throw new Error(`response.output_item.done: Item "${item.id}" not found`);
       }
       foundItem.status = item.status;
       return { item: foundItem, delta: null };
-    }
+    },
   };
 }
