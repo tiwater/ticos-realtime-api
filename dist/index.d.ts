@@ -62,14 +62,38 @@ interface ItemError {
     message: string;
 }
 /**
+ * Formatted properties for items
+ */
+interface FormattedProperties {
+    text?: string;
+    audio?: Int16Array;
+    transcript?: string;
+    tool?: {
+        type: string;
+        name: string;
+        call_id: string;
+        arguments: string;
+    };
+    output?: string;
+    file?: {
+        url?: string;
+        blob?: Blob;
+    };
+}
+/**
  * Base item type for conversation items
  */
 interface ItemType {
     id: string;
-    type: 'message' | 'text' | 'audio' | 'image' | 'tool_call' | 'tool_response';
-    role?: 'user' | 'assistant';
+    type: 'message' | 'text' | 'audio' | 'image' | 'tool_call' | 'tool_response' | 'function_call' | 'function_call_output';
+    role?: 'user' | 'assistant' | 'system';
     content: Content[];
-    status?: 'completed' | 'incomplete';
+    status?: 'in_progress' | 'completed' | 'incomplete';
+    formatted?: FormattedProperties;
+    arguments?: string;
+    call_id?: string;
+    name?: string;
+    output?: string;
 }
 /**
  * Conversation state type
@@ -276,6 +300,7 @@ interface RealtimeConfig {
  */
 interface Event {
     type: string;
+    [key: string]: any;
 }
 /**
  * WebSocket event source
@@ -349,101 +374,82 @@ interface ToolResponseEvent extends Event {
         message: string;
     };
 }
-
-/** Callback function type for event handlers */
-type EventHandlerCallbackType = (event: Record<string, any>) => void;
 /**
- * Base class for handling real-time events with support for persistent and one-time event listeners.
+ * Realtime event with metadata
+ */
+interface RealtimeEvent extends Event {
+    time: string;
+    source: 'client' | 'server';
+    event: Event;
+}
+
+/**
+ * EventHandler callback type definition
+ */
+type EventHandlerCallbackType<T extends Event = Event> = (event: T) => void;
+/**
+ * Base class for handling real-time events
  * Provides methods for subscribing to events, handling them once, and waiting for specific events.
+ * Used by RealtimeAPI and RealtimeClient classes.
  */
 declare class RealtimeEventHandler {
-    /** Map of event types to arrays of callback functions */
-    private handlers;
-    /** Map of event types to arrays of one-time callback functions */
-    private onceHandlers;
-    /** Map of event types to promises that resolve when the event occurs */
-    private waiters;
+    /** Event handlers for persistent event listeners */
+    private eventHandlers;
+    /** Event handlers for one-time event listeners */
+    private nextEventHandlers;
     /**
-     * Adds an event listener for the specified event type.
-     * Supports wildcard event types using "*" (e.g., "conversation.*").
-     *
-     * @param {string} type - Event type to listen for
-     * @param {EventHandlerCallbackType} callback - Function to call when the event occurs
-     * @returns {this} The event handler instance for chaining
-     *
-     * @example
-     * ```typescript
-     * eventHandler.on('message.received', (event) => {
-     *   console.log('Message received:', event);
-     * });
-     *
-     * // Using wildcards
-     * eventHandler.on('conversation.*', (event) => {
-     *   console.log('Conversation event:', event);
-     * });
-     * ```
+     * Creates a new RealtimeEventHandler instance
      */
-    on(type: string, callback: EventHandlerCallbackType): this;
+    constructor();
     /**
-     * Adds a one-time event listener for the specified event type.
-     * The listener will be automatically removed after it is called once.
-     *
-     * @param {string} type - Event type to listen for
-     * @param {EventHandlerCallbackType} callback - Function to call when the event occurs
-     * @returns {this} The event handler instance for chaining
-     *
-     * @example
-     * ```typescript
-     * eventHandler.once('connection.established', (event) => {
-     *   console.log('Connected!');
-     * });
-     * ```
+     * Clears all event handlers
+     * @returns {boolean} Always returns true
      */
-    once(type: string, callback: EventHandlerCallbackType): this;
+    clearEventHandlers(): boolean;
     /**
-     * Removes an event listener for the specified event type.
-     *
-     * @param {string} type - Event type to remove listener from
-     * @param {EventHandlerCallbackType} callback - Function to remove
-     * @returns {this} The event handler instance for chaining
-     *
-     * @example
-     * ```typescript
-     * const handleMessage = (event) => console.log('Message:', event);
-     * eventHandler.on('message', handleMessage);
-     * // Later...
-     * eventHandler.off('message', handleMessage);
-     * ```
+     * Listen to specific events
+     * @param {string} eventName The name of the event to listen to
+     * @param {EventHandlerCallbackType<T>} callback Code to execute on event
+     * @returns {EventHandlerCallbackType<T>} The callback function
      */
-    off(type: string, callback: EventHandlerCallbackType): this;
+    on<T extends Event = Event>(eventName: string, callback: EventHandlerCallbackType<T>): EventHandlerCallbackType<T>;
     /**
-     * Emits an event of the specified type with the provided data.
-     * Calls all registered listeners for the event type.
-     *
-     * @param {string} type - Event type to emit
-     * @param {Record<string, any>} event - Event data to pass to listeners
-     * @returns {boolean} True if the event had listeners, false otherwise
-     *
-     * @example
-     * ```typescript
-     * eventHandler.emit('message.sent', { text: 'Hello!' });
-     * ```
+     * Listen for the next event of a specified type
+     * @param {string} eventName The name of the event to listen to
+     * @param {EventHandlerCallbackType<T>} callback Code to execute on event
+     * @returns {EventHandlerCallbackType<T>} The callback function
      */
-    emit(type: string, event?: Record<string, any>): boolean;
+    onNext<T extends Event = Event>(eventName: string, callback: EventHandlerCallbackType<T>): EventHandlerCallbackType<T>;
     /**
-     * Returns a promise that resolves when an event of the specified type occurs.
-     *
-     * @param {string} type - Event type to wait for
-     * @param {number} [timeout=30000] - Maximum time to wait in milliseconds
-     * @returns {Promise<any>} Promise that resolves with the event data
-     *
-     * @example
-     * ```typescript
-     * const event = await eventHandler.waitForNext('message.received');
-     * console.log('Message received:', event);
-     * ```
+     * Turns off event listening for specific events
+     * Calling without a callback will remove all listeners for the event
+     * @param {string} eventName Event name to stop listening to
+     * @param {EventHandlerCallbackType<T>} [callback] Optional specific callback to remove
+     * @returns {boolean} Always returns true
      */
-    waitForNext(type: string, timeout?: number): Promise<any>;
+    off<T extends Event = Event>(eventName: string, callback?: EventHandlerCallbackType<T>): boolean;
+    /**
+     * Turns off event listening for the next event of a specific type
+     * Calling without a callback will remove all listeners for the next event
+     * @param {string} eventName Event name to stop listening to
+     * @param {EventHandlerCallbackType<T>} [callback] Optional specific callback to remove
+     * @returns {boolean} Always returns true
+     */
+    offNext<T extends Event = Event>(eventName: string, callback?: EventHandlerCallbackType<T>): boolean;
+    /**
+     * Waits for next event of a specific type and returns the payload
+     * @param {string} eventName Event name to wait for
+     * @param {number|null} [timeout=null] Optional timeout in milliseconds
+     * @returns {Promise<T|null>} Promise that resolves with the event data or null if timed out
+     */
+    waitForNext<T extends Event = Event>(eventName: string, timeout?: number | null): Promise<T | null>;
+    /**
+     * Executes all events in the order they were added, with .on() event handlers executing before .onNext() handlers
+     * @param {string} eventName Event name to dispatch
+     * @param {T} event Event data to pass to handlers
+     * @returns {boolean} Always returns true
+     */
+    dispatch<T extends Event>(eventName: string, event: T): boolean;
 }
 
 /**
@@ -526,7 +532,7 @@ declare class RealtimeAPI extends RealtimeEventHandler {
      * If not connected, the message will be queued and sent when the connection is established.
      *
      * @param {string} type - Message type
-     * @param {any} payload - Message payload
+     * @param {Record<string, any>} payload - Message payload
      * @returns {boolean} True if sent immediately, false if queued
      *
      * @example
@@ -534,7 +540,7 @@ declare class RealtimeAPI extends RealtimeEventHandler {
      * api.send('message', { text: 'Hello!' });
      * ```
      */
-    send(type: string, payload?: any): boolean;
+    send(type: string, payload?: Record<string, any>): boolean;
     /**
      * Registers a tool with the server.
      *
@@ -586,51 +592,83 @@ declare class RealtimeAPI extends RealtimeEventHandler {
      * ```
      */
     sendToolError(toolCallId: string, error: string): boolean;
+    /**
+     * Receives an event from WebSocket and dispatches as "server.{eventName}" and "server.*" events
+     *
+     * @param {string} eventName - Event name
+     * @param {Record<string, any>} event - Event data
+     * @returns {boolean} Always returns true
+     * @private
+     */
+    private receive;
 }
 
+/**
+ * Contains text and audio information about an item
+ * Can also be used as a delta
+ */
+interface ItemContentDelta {
+    text?: string;
+    audio?: Int16Array;
+    arguments?: string;
+    transcript?: string;
+}
 /**
  * Manages the state and events of a realtime conversation.
  * Handles conversation items, audio queuing, and event processing.
  *
  * @class RealtimeConversation
- *
- * @example
- * ```typescript
- * const conversation = new RealtimeConversation();
- * conversation.addItem({
- *   id: '123',
- *   type: 'text',
- *   content: [{ type: 'text', text: 'Hello!' }]
- * });
- * ```
  */
 declare class RealtimeConversation {
-    /** Array of conversation items */
-    private items;
-    /** ID of the currently active item */
-    private currentItemId;
-    /** Queued audio data for processing */
-    private queuedAudio;
     /** Default audio sampling frequency in Hz */
     readonly defaultFrequency: number;
+    /** Lookup for items by ID */
+    private itemLookup;
+    /** Array of conversation items */
+    private items;
+    /** Lookup for responses by ID */
+    private responseLookup;
+    /** Array of responses */
+    private responses;
+    /** Queued speech items by ID */
+    private queuedSpeechItems;
+    /** Queued transcript items by ID */
+    private queuedTranscriptItems;
+    /** Queued audio data for processing */
+    private queuedInputAudio;
     /**
      * Creates a new RealtimeConversation instance.
      * Initializes empty conversation state.
      */
     constructor();
     /**
-     * Adds a new item to the conversation.
-     * Sets it as the current item.
-     *
-     * @param {ItemType} item - The item to add to the conversation
+     * Clears the conversation history and resets to default
+     * @returns {boolean} Always returns true
      */
-    addItem(item: ItemType): void;
+    clear(): boolean;
     /**
-     * Gets the currently active conversation item.
+     * Queues audio data for processing.
      *
-     * @returns {ItemType | null} The current item or null if none is active
+     * @param {Int16Array} audio - Audio data to queue
+     * @returns {Int16Array} The queued audio data
      */
-    getCurrentItem(): ItemType | null;
+    queueInputAudio(audio: Int16Array): Int16Array;
+    /**
+     * Process an event from the WebSocket server and compose items
+     * @param {any} event - The event to process
+     * @param {...any} args - Additional arguments
+     * @returns {{ item: ItemType | null, delta: ItemContentDelta | null }} Processed item and delta
+     */
+    processEvent(event: any, ...args: any[]): {
+        item: ItemType | null;
+        delta: ItemContentDelta | null;
+    };
+    /**
+     * Retrieves a item by id
+     * @param {string} id - Item ID
+     * @returns {ItemType | null} The item or null if not found
+     */
+    getItem(id: string): ItemType | null;
     /**
      * Gets all items in the conversation.
      *
@@ -638,42 +676,10 @@ declare class RealtimeConversation {
      */
     getItems(): ItemType[];
     /**
-     * Clears all items from the conversation.
+     * Event processors for different event types
+     * @private
      */
-    clearItems(): void;
-    /**
-     * Updates an existing item in the conversation.
-     *
-     * @param {string} id - ID of the item to update
-     * @param {Partial<ItemType>} updates - Partial item data to apply
-     * @returns {boolean} True if the item was found and updated, false otherwise
-     */
-    updateItem(id: string, updates: Partial<ItemType>): boolean;
-    /**
-     * Removes an item from the conversation.
-     *
-     * @param {string} id - ID of the item to remove
-     * @returns {boolean} True if the item was found and removed, false otherwise
-     */
-    removeItem(id: string): boolean;
-    /**
-     * Queues audio data for processing.
-     *
-     * @param {Int16Array} audio - Audio data to queue
-     */
-    queueInputAudio(audio: Int16Array): void;
-    /**
-     * Gets and clears the queued audio data.
-     *
-     * @returns {Int16Array | null} The queued audio data or null if none is queued
-     */
-    getAndClearQueuedAudio(): Int16Array | null;
-    /**
-     * Checks if there is queued audio data.
-     *
-     * @returns {boolean} True if there is queued audio, false otherwise
-     */
-    hasQueuedAudio(): boolean;
+    private EventProcessors;
 }
 
 /**
@@ -800,9 +806,7 @@ declare class RealtimeClient extends RealtimeEventHandler {
      * ```
      */
     waitForNextItem(): Promise<{
-        item: null;
-    } | {
-        item: ItemType;
+        item: ItemType | null;
     }>;
     /**
      * Waits for the next item to be completed in the conversation.
@@ -818,9 +822,7 @@ declare class RealtimeClient extends RealtimeEventHandler {
      * ```
      */
     waitForNextCompletedItem(): Promise<{
-        item: null;
-    } | {
-        item: ItemType;
+        item: ItemType | null;
     }>;
     protected getSessionPayload(): {
         session: RealtimeConfig;
@@ -922,4 +924,4 @@ declare class RealtimeUtils {
     static generateId(prefix: string, length?: number): string;
 }
 
-export { type AudioConfig, type AudioContent, type ClientOptions, type Content, type ContentBase, type ContentType, type ConversationEndEvent, type ConversationStartEvent, type ConversationState, type Event, type EventSource, type ImageContent, type InputAudioContent, type InputTextContent, type ItemError, type ItemErrorEvent, type ItemEvent, type ItemStatus, type ItemType, type KnowledgeConfig, type ModelConfig, RealtimeAPI, RealtimeClient, type RealtimeConfig, RealtimeConversation, RealtimeEventHandler, RealtimeUtils, type SessionUpdateEvent, type TextContent, type TimestampedEvent, type ToolCallEvent, type ToolDefinition, type ToolRegisterEvent, type ToolRegistration, type ToolResponseEvent, type VisionConfig };
+export { type AudioConfig, type AudioContent, type ClientOptions, type Content, type ContentBase, type ContentType, type ConversationEndEvent, type ConversationStartEvent, type ConversationState, type Event, type EventSource, type FormattedProperties, type ImageContent, type InputAudioContent, type InputTextContent, type ItemError, type ItemErrorEvent, type ItemEvent, type ItemStatus, type ItemType, type KnowledgeConfig, type ModelConfig, RealtimeAPI, RealtimeClient, type RealtimeConfig, RealtimeConversation, type RealtimeEvent, RealtimeEventHandler, RealtimeUtils, type SessionUpdateEvent, type TextContent, type TimestampedEvent, type ToolCallEvent, type ToolDefinition, type ToolRegisterEvent, type ToolRegistration, type ToolResponseEvent, type VisionConfig };

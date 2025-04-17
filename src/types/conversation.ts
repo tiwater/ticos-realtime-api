@@ -72,14 +72,39 @@ export interface ItemError {
 }
 
 /**
+ * Formatted properties for items
+ */
+export interface FormattedProperties {
+  text?: string;
+  audio?: Int16Array;
+  transcript?: string;
+  tool?: {
+    type: string;
+    name: string;
+    call_id: string;
+    arguments: string;
+  };
+  output?: string;
+  file?: {
+    url?: string;
+    blob?: Blob;
+  };
+}
+
+/**
  * Base item type for conversation items
  */
 export interface ItemType {
   id: string;
-  type: 'message' | 'text' | 'audio' | 'image' | 'tool_call' | 'tool_response';
-  role?: 'user' | 'assistant';
+  type: 'message' | 'text' | 'audio' | 'image' | 'tool_call' | 'tool_response' | 'function_call' | 'function_call_output';
+  role?: 'user' | 'assistant' | 'system';
   content: Content[];
-  status?: 'completed' | 'incomplete';
+  status?: 'in_progress' | 'completed' | 'incomplete';
+  formatted?: FormattedProperties;
+  arguments?: string;
+  call_id?: string;
+  name?: string;
+  output?: string;
 }
 
 /**

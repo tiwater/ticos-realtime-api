@@ -6,6 +6,7 @@ import { ClientOptions, ToolDefinition, RealtimeConfig } from './client';
  */
 export interface Event {
   type: string;
+  [key: string]: any; // Allow additional properties for compatibility
 }
 
 /**
@@ -89,3 +90,12 @@ export interface ToolResponseEvent extends Event {
     message: string;
   };
 } 
+
+/**
+ * Realtime event with metadata
+ */
+export interface RealtimeEvent extends Event {
+  time: string;
+  source: 'client' | 'server';
+  event: Event;
+}

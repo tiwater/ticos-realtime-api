@@ -5,7 +5,7 @@ import { useRealtime } from '@/contexts/realtime-context';
 import Message from './message';
 import ChatInput from './chat-input';
 import { Button } from "@/components/ui/button";
-import { RefreshCw, AlertCircle, AudioLines, Mic } from "lucide-react";
+import { RefreshCw, AlertCircle, AudioLines, Mic, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
@@ -102,7 +102,7 @@ const ChatContainer: React.FC = () => {
       }`}>
         <div className="flex justify-between h-8 items-center">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
-            <AudioLines className={cn("h-4 w-4")} />
+            <AudioLines className={cn("h-4 w-4 animate-pulse")} />
             Realtime Chat
             <div className={`h-2.5 w-2.5 rounded-full ml-1 ${
               isConnected 
@@ -144,7 +144,7 @@ const ChatContainer: React.FC = () => {
                 disabled 
                 variant="outline" 
               >
-                <RefreshCw className="h-3 w-3 animate-spin mr-1" />
+                <Loader2 className="h-3 w-3 animate-spin" />
                 Connecting...
               </Button>
             )}

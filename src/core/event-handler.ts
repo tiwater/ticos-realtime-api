@@ -1,192 +1,164 @@
-/** Callback function type for event handlers */
-type EventHandlerCallbackType = (event: Record<string, any>) => void;
-
-/** Utility function to create a promise that resolves after a specified time */
-const sleep = (t: number) => new Promise((r) => setTimeout(r, t));
+import { Event } from '../types/events';
 
 /**
- * Base class for handling real-time events with support for persistent and one-time event listeners.
+ * EventHandler callback type definition
+ */
+type EventHandlerCallbackType<T extends Event = Event> = (event: T) => void;
+
+/**
+ * Utility function to create a promise that resolves after a specified time
+ */
+const sleep = (t: number): Promise<void> => new Promise<void>((r) => setTimeout(() => r(), t));
+
+/**
+ * Base class for handling real-time events
  * Provides methods for subscribing to events, handling them once, and waiting for specific events.
+ * Used by RealtimeAPI and RealtimeClient classes.
  */
 export class RealtimeEventHandler {
-  /** Map of event types to arrays of callback functions */
-  private handlers: Map<string, EventHandlerCallbackType[]> = new Map();
-  /** Map of event types to arrays of one-time callback functions */
-  private onceHandlers: Map<string, EventHandlerCallbackType[]> = new Map();
-  /** Map of event types to promises that resolve when the event occurs */
-  private waiters: Map<string, Array<(event: any) => void>> = new Map();
+  /** Event handlers for persistent event listeners */
+  private eventHandlers: Record<string, EventHandlerCallbackType[]> = {};
+  /** Event handlers for one-time event listeners */
+  private nextEventHandlers: Record<string, EventHandlerCallbackType[]> = {};
 
   /**
-   * Adds an event listener for the specified event type.
-   * Supports wildcard event types using "*" (e.g., "conversation.*").
-   * 
-   * @param {string} type - Event type to listen for
-   * @param {EventHandlerCallbackType} callback - Function to call when the event occurs
-   * @returns {this} The event handler instance for chaining
-   * 
-   * @example
-   * ```typescript
-   * eventHandler.on('message.received', (event) => {
-   *   console.log('Message received:', event);
-   * });
-   * 
-   * // Using wildcards
-   * eventHandler.on('conversation.*', (event) => {
-   *   console.log('Conversation event:', event);
-   * });
-   * ```
+   * Creates a new RealtimeEventHandler instance
    */
-  public on(type: string, callback: EventHandlerCallbackType): this {
-    if (!this.handlers.has(type)) {
-      this.handlers.set(type, []);
-    }
-    this.handlers.get(type)!.push(callback);
-    return this;
+  constructor() {
+    this.eventHandlers = {};
+    this.nextEventHandlers = {};
   }
 
   /**
-   * Adds a one-time event listener for the specified event type.
-   * The listener will be automatically removed after it is called once.
-   * 
-   * @param {string} type - Event type to listen for
-   * @param {EventHandlerCallbackType} callback - Function to call when the event occurs
-   * @returns {this} The event handler instance for chaining
-   * 
-   * @example
-   * ```typescript
-   * eventHandler.once('connection.established', (event) => {
-   *   console.log('Connected!');
-   * });
-   * ```
+   * Clears all event handlers
+   * @returns {boolean} Always returns true
    */
-  public once(type: string, callback: EventHandlerCallbackType): this {
-    if (!this.onceHandlers.has(type)) {
-      this.onceHandlers.set(type, []);
-    }
-    this.onceHandlers.get(type)!.push(callback);
-    return this;
+  public clearEventHandlers(): boolean {
+    this.eventHandlers = {};
+    this.nextEventHandlers = {};
+    return true;
   }
 
   /**
-   * Removes an event listener for the specified event type.
-   * 
-   * @param {string} type - Event type to remove listener from
-   * @param {EventHandlerCallbackType} callback - Function to remove
-   * @returns {this} The event handler instance for chaining
-   * 
-   * @example
-   * ```typescript
-   * const handleMessage = (event) => console.log('Message:', event);
-   * eventHandler.on('message', handleMessage);
-   * // Later...
-   * eventHandler.off('message', handleMessage);
-   * ```
+   * Listen to specific events
+   * @param {string} eventName The name of the event to listen to
+   * @param {EventHandlerCallbackType<T>} callback Code to execute on event
+   * @returns {EventHandlerCallbackType<T>} The callback function
    */
-  public off(type: string, callback: EventHandlerCallbackType): this {
-    if (this.handlers.has(type)) {
-      const handlers = this.handlers.get(type)!;
-      const index = handlers.indexOf(callback);
-      if (index !== -1) {
-        handlers.splice(index, 1);
+  public on<T extends Event = Event>(eventName: string, callback: EventHandlerCallbackType<T>): EventHandlerCallbackType<T> {
+    this.eventHandlers[eventName] = this.eventHandlers[eventName] || [];
+    // Type assertion needed because we're storing callbacks for different event types in the same array
+    this.eventHandlers[eventName].push(callback as EventHandlerCallbackType);
+    return callback;
+  }
+
+  /**
+   * Listen for the next event of a specified type
+   * @param {string} eventName The name of the event to listen to
+   * @param {EventHandlerCallbackType<T>} callback Code to execute on event
+   * @returns {EventHandlerCallbackType<T>} The callback function
+   */
+  public onNext<T extends Event = Event>(eventName: string, callback: EventHandlerCallbackType<T>): EventHandlerCallbackType<T> {
+    this.nextEventHandlers[eventName] = this.nextEventHandlers[eventName] || [];
+    // Type assertion needed because we're storing callbacks for different event types in the same array
+    this.nextEventHandlers[eventName].push(callback as EventHandlerCallbackType);
+    return callback;
+  }
+
+  /**
+   * Turns off event listening for specific events
+   * Calling without a callback will remove all listeners for the event
+   * @param {string} eventName Event name to stop listening to
+   * @param {EventHandlerCallbackType<T>} [callback] Optional specific callback to remove
+   * @returns {boolean} Always returns true
+   */
+  public off<T extends Event = Event>(eventName: string, callback?: EventHandlerCallbackType<T>): boolean {
+    const handlers = this.eventHandlers[eventName] || [];
+    if (callback) {
+      const index = handlers.indexOf(callback as EventHandlerCallbackType);
+      if (index === -1) {
+        throw new Error(
+          `Could not turn off specified event listener for "${eventName}": not found as a listener`
+        );
       }
+      handlers.splice(index, 1);
+    } else {
+      delete this.eventHandlers[eventName];
     }
-    return this;
+    return true;
   }
 
   /**
-   * Emits an event of the specified type with the provided data.
-   * Calls all registered listeners for the event type.
-   * 
-   * @param {string} type - Event type to emit
-   * @param {Record<string, any>} event - Event data to pass to listeners
-   * @returns {boolean} True if the event had listeners, false otherwise
-   * 
-   * @example
-   * ```typescript
-   * eventHandler.emit('message.sent', { text: 'Hello!' });
-   * ```
+   * Turns off event listening for the next event of a specific type
+   * Calling without a callback will remove all listeners for the next event
+   * @param {string} eventName Event name to stop listening to
+   * @param {EventHandlerCallbackType<T>} [callback] Optional specific callback to remove
+   * @returns {boolean} Always returns true
    */
-  public emit(type: string, event: Record<string, any> = {}): boolean {
-    let hasListeners = false;
-
-    // Process regular handlers
-    if (this.handlers.has(type)) {
-      hasListeners = true;
-      for (const handler of this.handlers.get(type)!) {
-        handler(event);
+  public offNext<T extends Event = Event>(eventName: string, callback?: EventHandlerCallbackType<T>): boolean {
+    const nextHandlers = this.nextEventHandlers[eventName] || [];
+    if (callback) {
+      const index = nextHandlers.indexOf(callback as EventHandlerCallbackType);
+      if (index === -1) {
+        throw new Error(
+          `Could not turn off specified next event listener for "${eventName}": not found as a listener`
+        );
       }
+      nextHandlers.splice(index, 1);
+    } else {
+      delete this.nextEventHandlers[eventName];
     }
+    return true;
+  }
 
-    // Process wildcard handlers
-    if (type.includes('.')) {
-      const parts = type.split('.');
-      const wildcardType = `${parts[0]}.*`;
-      if (this.handlers.has(wildcardType)) {
-        hasListeners = true;
-        for (const handler of this.handlers.get(wildcardType)!) {
-          handler({ ...event, type });
+  /**
+   * Waits for next event of a specific type and returns the payload
+   * @param {string} eventName Event name to wait for
+   * @param {number|null} [timeout=null] Optional timeout in milliseconds
+   * @returns {Promise<T|null>} Promise that resolves with the event data or null if timed out
+   */
+  public async waitForNext<T extends Event = Event>(eventName: string, timeout: number | null = null): Promise<T | null> {
+    const t0 = Date.now();
+    let nextEvent: T | undefined;
+    this.onNext<T>(eventName, (event) => (nextEvent = event));
+    
+    while (!nextEvent) {
+      if (timeout !== null) {
+        const t1 = Date.now();
+        if (t1 - t0 > timeout) {
+          return null;
         }
       }
+      await sleep(1);
     }
-
-    // Process once handlers
-    if (this.onceHandlers.has(type)) {
-      hasListeners = true;
-      const handlers = this.onceHandlers.get(type)!;
-      this.onceHandlers.delete(type);
-      for (const handler of handlers) {
-        handler(event);
-      }
-    }
-
-    // Process waiters
-    if (this.waiters.has(type)) {
-      hasListeners = true;
-      const resolvers = this.waiters.get(type)!;
-      this.waiters.delete(type);
-      for (const resolve of resolvers) {
-        resolve(event);
-      }
-    }
-
-    return hasListeners;
+    
+    return nextEvent;
   }
 
   /**
-   * Returns a promise that resolves when an event of the specified type occurs.
-   * 
-   * @param {string} type - Event type to wait for
-   * @param {number} [timeout=30000] - Maximum time to wait in milliseconds
-   * @returns {Promise<any>} Promise that resolves with the event data
-   * 
-   * @example
-   * ```typescript
-   * const event = await eventHandler.waitForNext('message.received');
-   * console.log('Message received:', event);
-   * ```
+   * Executes all events in the order they were added, with .on() event handlers executing before .onNext() handlers
+   * @param {string} eventName Event name to dispatch
+   * @param {T} event Event data to pass to handlers
+   * @returns {boolean} Always returns true
    */
-  public waitForNext(type: string, timeout: number = 30000): Promise<any> {
-    return new Promise((resolve) => {
-      if (!this.waiters.has(type)) {
-        this.waiters.set(type, []);
-      }
-      this.waiters.get(type)!.push(resolve);
-
-      if (timeout > 0) {
-        sleep(timeout).then(() => {
-          if (this.waiters.has(type)) {
-            const resolvers = this.waiters.get(type)!;
-            const index = resolvers.indexOf(resolve);
-            if (index !== -1) {
-              resolvers.splice(index, 1);
-              if (resolvers.length === 0) {
-                this.waiters.delete(type);
-              }
-              resolve(null);
-            }
-          }
-        });
-      }
-    });
+  public dispatch<T extends Event>(eventName: string, event: T): boolean {
+    const handlers = Array.isArray(this.eventHandlers[eventName]) 
+      ? [...this.eventHandlers[eventName]] 
+      : [];
+      
+    for (const handler of handlers) {
+      handler(event);
+    }
+    
+    const nextHandlers = Array.isArray(this.nextEventHandlers[eventName]) 
+      ? [...this.nextEventHandlers[eventName]] 
+      : [];
+      
+    for (const nextHandler of nextHandlers) {
+      nextHandler(event);
+    }
+    
+    delete this.nextEventHandlers[eventName];
+    return true;
   }
 }

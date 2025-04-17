@@ -1,61 +1,107 @@
 import type { ItemType, Content } from '../types/conversation';
+import { RealtimeUtils } from '../utils';
+
+/**
+ * Contains text and audio information about an item
+ * Can also be used as a delta
+ */
+interface ItemContentDelta {
+  text?: string;
+  audio?: Int16Array;
+  arguments?: string;
+  transcript?: string;
+}
 
 /**
  * Manages the state and events of a realtime conversation.
  * Handles conversation items, audio queuing, and event processing.
  * 
  * @class RealtimeConversation
- * 
- * @example
- * ```typescript
- * const conversation = new RealtimeConversation();
- * conversation.addItem({
- *   id: '123',
- *   type: 'text',
- *   content: [{ type: 'text', text: 'Hello!' }]
- * });
- * ```
  */
 export class RealtimeConversation {
-  /** Array of conversation items */
-  private items: ItemType[] = [];
-  /** ID of the currently active item */
-  private currentItemId: string | null;
-  /** Queued audio data for processing */
-  private queuedAudio: Int16Array | null;
   /** Default audio sampling frequency in Hz */
   public readonly defaultFrequency: number = 24000;
+  
+  /** Lookup for items by ID */
+  private itemLookup: Record<string, ItemType> = {};
+  /** Array of conversation items */
+  private items: ItemType[] = [];
+  /** Lookup for responses by ID */
+  private responseLookup: Record<string, any> = {};
+  /** Array of responses */
+  private responses: any[] = [];
+  /** Queued speech items by ID */
+  private queuedSpeechItems: Record<string, any> = {};
+  /** Queued transcript items by ID */
+  private queuedTranscriptItems: Record<string, any> = {};
+  /** Queued audio data for processing */
+  private queuedInputAudio: Int16Array | null = null;
 
   /**
    * Creates a new RealtimeConversation instance.
    * Initializes empty conversation state.
    */
   constructor() {
+    this.clear();
+  }
+
+  /**
+   * Clears the conversation history and resets to default
+   * @returns {boolean} Always returns true
+   */
+  public clear(): boolean {
+    this.itemLookup = {};
     this.items = [];
-    this.currentItemId = null;
-    this.queuedAudio = null;
+    this.responseLookup = {};
+    this.responses = [];
+    this.queuedSpeechItems = {};
+    this.queuedTranscriptItems = {};
+    this.queuedInputAudio = null;
+    return true;
   }
 
   /**
-   * Adds a new item to the conversation.
-   * Sets it as the current item.
+   * Queues audio data for processing.
    * 
-   * @param {ItemType} item - The item to add to the conversation
+   * @param {Int16Array} audio - Audio data to queue
+   * @returns {Int16Array} The queued audio data
    */
-  public addItem(item: ItemType): void {
-    this.items.push(item);
-    this.currentItemId = item.id;
+  public queueInputAudio(audio: Int16Array): Int16Array {
+    this.queuedInputAudio = audio;
+    return audio;
   }
 
   /**
-   * Gets the currently active conversation item.
-   * 
-   * @returns {ItemType | null} The current item or null if none is active
+   * Process an event from the WebSocket server and compose items
+   * @param {any} event - The event to process
+   * @param {...any} args - Additional arguments
+   * @returns {{ item: ItemType | null, delta: ItemContentDelta | null }} Processed item and delta
    */
-  public getCurrentItem(): ItemType | null {
-    return this.currentItemId 
-      ? this.items.find(item => item.id === this.currentItemId) || null 
-      : null;
+  public processEvent(event: any, ...args: any[]): { item: ItemType | null, delta: ItemContentDelta | null } {
+    if (!event.event_id) {
+      console.error(event);
+      throw new Error('Missing "event_id" on event');
+    }
+    if (!event.type) {
+      console.error(event);
+      throw new Error('Missing "type" on event');
+    }
+    
+    const eventProcessor = this.EventProcessors[event.type];
+    if (!eventProcessor) {
+      throw new Error(`Missing conversation event processor for "${event.type}"`);
+    }
+    
+    return eventProcessor.call(this, event, ...args);
+  }
+
+  /**
+   * Retrieves a item by id
+   * @param {string} id - Item ID
+   * @returns {ItemType | null} The item or null if not found
+   */
+  public getItem(id: string): ItemType | null {
+    return this.itemLookup[id] || null;
   }
 
   /**
@@ -64,80 +110,165 @@ export class RealtimeConversation {
    * @returns {ItemType[]} Array of all conversation items
    */
   public getItems(): ItemType[] {
-    return [...this.items];
+    return this.items.slice();
   }
-
+  
   /**
-   * Clears all items from the conversation.
+   * Event processors for different event types
+   * @private
    */
-  public clearItems(): void {
-    this.items = [];
-    this.currentItemId = null;
-  }
-
-  /**
-   * Updates an existing item in the conversation.
-   * 
-   * @param {string} id - ID of the item to update
-   * @param {Partial<ItemType>} updates - Partial item data to apply
-   * @returns {boolean} True if the item was found and updated, false otherwise
-   */
-  public updateItem(id: string, updates: Partial<ItemType>): boolean {
-    const index = this.items.findIndex(item => item.id === id);
-    if (index === -1) {
-      return false;
-    }
+  private EventProcessors: Record<string, (event: any, ...args: any[]) => { item: ItemType | null, delta: ItemContentDelta | null }> = {
+    'conversation.item.created': (event) => {
+      const { item } = event;
+      // deep copy values
+      const newItem = JSON.parse(JSON.stringify(item));
+      if (!this.itemLookup[newItem.id]) {
+        this.itemLookup[newItem.id] = newItem;
+        this.items.push(newItem);
+      }
+      
+      // Initialize formatted property if it doesn't exist
+      if (!newItem.formatted) {
+        newItem.formatted = {};
+      }
+      
+      newItem.formatted.audio = new Int16Array(0);
+      newItem.formatted.text = '';
+      newItem.formatted.transcript = '';
+      
+      // If we have a speech item, can populate audio
+      if (this.queuedSpeechItems[newItem.id]) {
+        newItem.formatted.audio = this.queuedSpeechItems[newItem.id].audio;
+        delete this.queuedSpeechItems[newItem.id]; // free up some memory
+      }
+      
+      // Populate formatted text if it comes out on creation
+      if (newItem.content) {
+        const textContent = newItem.content.filter((c: Content) =>
+          ['text', 'input_text'].includes(c.type),
+        );
+        for (const content of textContent) {
+          if (content.type === 'text' || content.type === 'input_text') {
+            newItem.formatted.text += content.text;
+          }
+        }
+      }
+      
+      if (newItem.type === 'message') {
+        if (newItem.role === 'user') {
+          newItem.status = 'completed';
+          if (this.queuedInputAudio) {
+            newItem.formatted.audio = this.queuedInputAudio;
+            this.queuedInputAudio = null;
+          }
+        } else {
+          newItem.status = 'in_progress';
+        }
+      } else if (newItem.type === 'function_call') {
+        newItem.formatted.tool = {
+          type: 'function',
+          name: newItem.name,
+          call_id: newItem.call_id,
+          arguments: '',
+        };
+        newItem.status = 'in_progress';
+      } else if (newItem.type === 'function_call_output') {
+        newItem.status = 'completed';
+        newItem.formatted.output = newItem.output;
+      }
+      
+      return { item: newItem, delta: null };
+    },
     
-    this.items[index] = { ...this.items[index], ...updates };
-    return true;
-  }
-
-  /**
-   * Removes an item from the conversation.
-   * 
-   * @param {string} id - ID of the item to remove
-   * @returns {boolean} True if the item was found and removed, false otherwise
-   */
-  public removeItem(id: string): boolean {
-    const index = this.items.findIndex(item => item.id === id);
-    if (index === -1) {
-      return false;
-    }
+    'response.audio.delta': (event) => {
+      const { item_id, content_index, delta } = event;
+      const item = this.itemLookup[item_id];
+      if (!item) {
+        console.warn(
+          `response.audio.delta: Item "${item_id}" not found, skipping`,
+        );
+        return { item: null, delta: null };
+      } else {
+        // Initialize formatted property if it doesn't exist
+        if (!item.formatted) {
+          item.formatted = {};
+        }
+        
+        // Initialize audio property if it doesn't exist
+        if (!item.formatted.audio) {
+          item.formatted.audio = new Int16Array(0);
+        }
+        
+        const arrayBuffer = RealtimeUtils.base64ToArrayBuffer(delta);
+        const appendValues = new Int16Array(arrayBuffer);
+        item.formatted.audio = RealtimeUtils.mergeInt16Arrays(
+          item.formatted.audio,
+          appendValues,
+        );
+        return { item, delta: { audio: appendValues } };
+      }
+    },
     
-    this.items.splice(index, 1);
-    if (this.currentItemId === id) {
-      this.currentItemId = this.items.length > 0 ? this.items[this.items.length - 1].id : null;
-    }
+    'response.text.delta': (event) => {
+      const { item_id, content_index, delta } = event;
+      const item = this.itemLookup[item_id];
+      if (!item) {
+        throw new Error(`response.text.delta: Item "${item_id}" not found`);
+      }
+      
+      // Initialize formatted property if it doesn't exist
+      if (!item.formatted) {
+        item.formatted = {};
+      }
+      
+      // Initialize text property if it doesn't exist
+      if (!item.formatted.text) {
+        item.formatted.text = '';
+      }
+      
+      if (item.content[content_index]) {
+        const contentItem = item.content[content_index];
+        if (contentItem.type === 'text') {
+          contentItem.text += delta;
+        }
+      }
+      
+      item.formatted.text += delta;
+      return { item, delta: { text: delta } };
+    },
     
-    return true;
-  }
-
-  /**
-   * Queues audio data for processing.
-   * 
-   * @param {Int16Array} audio - Audio data to queue
-   */
-  public queueInputAudio(audio: Int16Array): void {
-    this.queuedAudio = audio;
-  }
-
-  /**
-   * Gets and clears the queued audio data.
-   * 
-   * @returns {Int16Array | null} The queued audio data or null if none is queued
-   */
-  public getAndClearQueuedAudio(): Int16Array | null {
-    const audio = this.queuedAudio;
-    this.queuedAudio = null;
-    return audio;
-  }
-
-  /**
-   * Checks if there is queued audio data.
-   * 
-   * @returns {boolean} True if there is queued audio, false otherwise
-   */
-  public hasQueuedAudio(): boolean {
-    return this.queuedAudio !== null;
-  }
+    'input_audio_buffer.speech_stopped': (event, inputAudioBuffer) => {
+      const { item_id, audio_end_ms } = event;
+      if (!this.queuedSpeechItems[item_id]) {
+        this.queuedSpeechItems[item_id] = { audio_start_ms: audio_end_ms };
+      }
+      const speech = this.queuedSpeechItems[item_id];
+      speech.audio_end_ms = audio_end_ms;
+      if (inputAudioBuffer) {
+        const startIndex = Math.floor(
+          (speech.audio_start_ms * this.defaultFrequency) / 1000,
+        );
+        const endIndex = Math.floor(
+          (speech.audio_end_ms * this.defaultFrequency) / 1000,
+        );
+        speech.audio = inputAudioBuffer.slice(startIndex, endIndex);
+      }
+      return { item: null, delta: null };
+    },
+    
+    'response.output_item.done': (event) => {
+      const { item } = event;
+      if (!item) {
+        throw new Error(`response.output_item.done: Missing "item"`);
+      }
+      const foundItem = this.itemLookup[item.id];
+      if (!foundItem) {
+        throw new Error(
+          `response.output_item.done: Item "${item.id}" not found`,
+        );
+      }
+      foundItem.status = item.status;
+      return { item: foundItem, delta: null };
+    }
+  };
 }

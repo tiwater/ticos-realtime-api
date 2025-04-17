@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
 import React, { useRef, useState } from 'react';
 import { useRealtime } from '@/contexts/realtime-context';
-import { Activity } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Activity } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { 
-  Accordion, 
-  AccordionContent, 
-  AccordionItem, 
-  AccordionTrigger 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 
@@ -41,10 +41,10 @@ export function EventLog() {
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Auto-scroll</span>
             <label className="relative inline-flex items-center cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={autoScroll} 
-                onChange={(e) => setAutoScroll(e.target.checked)} 
+              <input
+                type="checkbox"
+                checked={autoScroll}
+                onChange={(e) => setAutoScroll(e.target.checked)}
                 className="sr-only peer"
               />
               <div className="w-9 h-5 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-brand"></div>
@@ -62,51 +62,55 @@ export function EventLog() {
             ) : (
               <Accordion type="multiple" className="space-y-2">
                 {events.map((event) => (
-                  <AccordionItem 
+                  <AccordionItem
                     key={event.id}
                     value={event.id}
                     className={cn(
-                      "text-xs rounded border shadow-sm",
-                      event.source === 'system' 
-                        ? 'bg-slate-100 border-slate-200' 
-                        : event.source === 'server' 
-                          ? 'bg-green-400/20 border-green-300/20' 
-                          : event.source === 'client'
-                            ? 'bg-blue-400/20 border-blue-300/20'
-                            : 'bg-red-50 border-red-200'
+                      'text-xs rounded border shadow-sm',
+                      event.source === 'server'
+                        ? 'bg-green-400/20 border-green-300/20'
+                        : event.source === 'client'
+                          ? 'bg-blue-400/20 border-blue-300/20'
+                          : 'bg-red-50 border-red-200'
                     )}
                   >
-                    <AccordionTrigger 
+                    <AccordionTrigger
                       className={cn(
-                        "py-2 px-3 hover:no-underline",
-                        event.source === 'system' 
-                          ? 'text-slate-700' 
-                          : event.source === 'server' 
-                            ? 'text-green-700' 
-                            : event.source === 'client'
-                              ? 'text-blue-700'
-                              : 'text-red-700'
+                        'py-2 px-3 hover:no-underline',
+                        event.source === 'server'
+                          ? 'text-green-700'
+                          : event.source === 'client'
+                            ? 'text-blue-700'
+                            : 'text-red-700'
                       )}
                     >
                       <div className="flex justify-between items-center w-full">
                         <span className="font-medium flex items-center gap-1.5">
+                          {event.source === 'client' ? '↑ ' : '↓ '}
                           {event.type}
                           {event.count && event.count > 1 && (
-                            <Badge variant="outline" className="text-xs py-0.5 border-brand/40 bg-brand/80 text-white">
+                            <Badge
+                              variant="outline"
+                              className="text-xs py-0.5 border-brand/40 bg-brand/80 text-white"
+                            >
                               {event.count}
                             </Badge>
                           )}
                         </span>
                         <span className="text-muted-foreground text-xs">
-                          {event.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          {new Date(event.time).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })}
                         </span>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-0">
-                      {event.data && (
+                      {event.event && (
                         <ScrollArea className="text-xs p-2 border border-t">
                           <div className="p-0 max-h-40">
-                            <pre>{JSON.stringify(event.data, null, 2)}</pre>
+                            <pre>{JSON.stringify(event.event, null, 2)}</pre>
                           </div>
                         </ScrollArea>
                       )}

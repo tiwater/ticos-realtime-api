@@ -1,6 +1,7 @@
 import { RealtimeEventHandler } from './event-handler';
 import type { WebSocket as WSType } from 'ws';
 import type { ClientOptions } from '../types/client';
+import { RealtimeUtils } from '../utils';
 
 /** Type alias for WebSocket instances that works in both Node.js and browser environments */
 type WebSocketType = WSType | WebSocket;
@@ -98,11 +99,7 @@ export class RealtimeAPI extends RealtimeEventHandler {
             console.log('Received:', data);
           }
           if (data.type) {
-            this.emit(data.type, data.payload || {});
-            this.emit('server.*', {
-              type: data.type,
-              payload: data.payload || {},
-            });
+            this.receive(data.type, data);
           }
         } catch (e) {
           console.error('Error parsing message:', e);
@@ -112,7 +109,9 @@ export class RealtimeAPI extends RealtimeEventHandler {
       ws.addEventListener('open', () => {
         this.connected = true;
         this.ws = ws;
-        this.emit('client.connected', {});
+        this.dispatch('client.connected', {
+          type: 'client.connected'
+        });
 
         // Send any pending messages
         for (const message of this.pendingMessages) {
@@ -124,14 +123,19 @@ export class RealtimeAPI extends RealtimeEventHandler {
       });
 
       ws.addEventListener('error', (error) => {
-        this.emit('client.error', { error });
+        this.dispatch('client.error', { 
+          type: 'client.error',
+          error 
+        });
         reject(error);
       });
 
       ws.addEventListener('close', () => {
         this.connected = false;
         this.ws = null;
-        this.emit('client.disconnected', {});
+        this.dispatch('client.disconnected', {
+          type: 'client.disconnected'
+        });
       });
 
       // Handle Node.js specific WebSocket options
@@ -200,7 +204,7 @@ export class RealtimeAPI extends RealtimeEventHandler {
    * If not connected, the message will be queued and sent when the connection is established.
    * 
    * @param {string} type - Message type
-   * @param {any} payload - Message payload
+   * @param {Record<string, any>} payload - Message payload
    * @returns {boolean} True if sent immediately, false if queued
    * 
    * @example
@@ -208,23 +212,42 @@ export class RealtimeAPI extends RealtimeEventHandler {
    * api.send('message', { text: 'Hello!' });
    * ```
    */
-  public send(type: string, payload: any = {}): boolean {
+  public send(type: string, payload: Record<string, any> = {}): boolean {
     if (!this.isConnected()) {
       this.pendingMessages.push({ type, payload });
       return false;
     }
 
-    const message = JSON.stringify({
+    const event = {
+      event_id: RealtimeUtils.generateId('evt_'),
       type,
-      payload,
-    });
+      ...payload,
+    };
 
     if (this.debug) {
       console.log('Sending:', { type, payload });
     }
 
-    this.ws!.send(message);
-    this.emit('client.sent', { type, payload });
+    this.ws!.send(JSON.stringify(event));
+    
+    // Create a client event with the appropriate type
+    const clientEvent = {
+      eventType: type,
+      event_id: event.event_id,
+      ...payload
+    };
+    
+    this.dispatch(`client.${type}`, {
+      type: `client.${type}`,
+      ...clientEvent
+    });
+    
+    this.dispatch('client.*', {
+      type: 'client.*',
+      originalType: type,
+      ...clientEvent
+    });
+    
     return true;
   }
 
@@ -295,5 +318,40 @@ export class RealtimeAPI extends RealtimeEventHandler {
       tool_call_id: toolCallId,
       error,
     });
+  }
+
+  /**
+   * Receives an event from WebSocket and dispatches as "server.{eventName}" and "server.*" events
+   * 
+   * @param {string} eventName - Event name
+   * @param {Record<string, any>} event - Event data
+   * @returns {boolean} Always returns true
+   * @private
+   */
+  private receive(eventName: string, event: Record<string, any>): boolean {
+    if (this.debug) {
+      console.log(`Received: ${eventName}`, event);
+    }
+    
+    // Create a server event with the appropriate type
+    const serverEvent = {
+      eventType: eventName,
+      ...Object.entries(event)
+        .filter(([key]) => key !== 'type')
+        .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {})
+    };
+    
+    this.dispatch(`server.${eventName}`, {
+      type: `server.${eventName}`,
+      ...serverEvent
+    });
+    
+    this.dispatch('server.*', {
+      type: 'server.*',
+      originalType: eventName,
+      ...serverEvent
+    });
+    
+    return true;
   }
 }

@@ -4,6 +4,7 @@ import { RealtimeConversation } from './conversation';
 import type { ClientOptions, ToolDefinition, RealtimeConfig } from '../types/client';  
 import type { ItemType, Content } from '../types/conversation';
 import { RealtimeUtils } from '../utils';
+import { Event, ItemEvent, RealtimeEvent } from '../types/events';
 
 /**
  * Event interface for conversation updates.
@@ -90,16 +91,18 @@ export class RealtimeClient extends RealtimeEventHandler {
    * @returns {boolean} Always returns true
    */
   private _addAPIEventHandlers(): boolean {
-    this.realtime.on('client.*', (event: any) => {
-      this.emit('realtime.event', {
+    this.realtime.on('client.*', (event: Event) => {
+      this.dispatch<RealtimeEvent>('realtime.event', {
+        type: 'realtime.event',
         time: new Date().toISOString(),
         source: 'client',
         event: event,
       });
     });
 
-    this.realtime.on('server.*', (event: any) => {
-      this.emit('realtime.event', {
+    this.realtime.on('server.*', (event: Event) => {
+      this.dispatch<RealtimeEvent>('realtime.event', {
+        type: 'realtime.event',
         time: new Date().toISOString(),
         source: 'server',
         event: event,
@@ -152,8 +155,7 @@ export class RealtimeClient extends RealtimeEventHandler {
    */
   protected updateSession(): void {
     if (this.isConnected()) {
-      const payload = this.getSessionPayload();
-      this.realtime.send('session.update', payload);
+      this.realtime.send('session.update', { session: this.config });
     }
   }
 
@@ -249,10 +251,10 @@ export class RealtimeClient extends RealtimeEventHandler {
    * }
    * ```
    */
-  public async waitForNextItem() {
-    const event = await this.waitForNext('conversation.item.appended');
+  public async waitForNextItem(): Promise<{ item: ItemType | null }> {
+    const event = await this.waitForNext<ItemEvent>('conversation.item.appended');
     if (!event) return { item: null };
-    return { item: event.item as ItemType };
+    return { item: event.item };
   }
 
   /**
@@ -268,10 +270,10 @@ export class RealtimeClient extends RealtimeEventHandler {
    * }
    * ```
    */
-  public async waitForNextCompletedItem() {
-    const event = await this.waitForNext('conversation.item.completed');
+  public async waitForNextCompletedItem(): Promise<{ item: ItemType | null }> {
+    const event = await this.waitForNext<ItemEvent>('conversation.item.completed');
     if (!event) return { item: null };
-    return { item: event.item as ItemType };
+    return { item: event.item };
   }
 
   protected getSessionPayload(): { session: RealtimeConfig } {
