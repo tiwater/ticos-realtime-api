@@ -326,6 +326,19 @@ export class RealtimeConversation {
       }
     },
 
+    'input_audio_buffer.speech_started': (event) => {
+      const { item_id, audio_start_ms } = event;
+      // Initialize speech item if it doesn't exist
+      if (!this.queuedSpeechItems[item_id]) {
+        this.queuedSpeechItems[item_id] = { audio_start_ms };
+      } else {
+        // Update the existing speech item with the start time
+        this.queuedSpeechItems[item_id].audio_start_ms = audio_start_ms;
+      }
+
+      return { item: null, delta: null };
+    },
+
     'input_audio_buffer.speech_stopped': (event, inputAudioBuffer) => {
       const { item_id, audio_end_ms } = event;
       if (!this.queuedSpeechItems[item_id]) {

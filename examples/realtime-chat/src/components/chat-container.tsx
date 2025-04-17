@@ -114,15 +114,9 @@ const ChatContainer: React.FC = () => {
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <AudioLines className={cn('h-4 w-4 animate-pulse')} />
             Realtime Chat
-            <div
-              className={`h-2.5 w-2.5 rounded-full ml-1 ${
-                isConnected
-                  ? 'bg-green-500 animate-pulse'
-                  : isLoading
-                    ? 'bg-amber-500 animate-pulse'
-                    : 'bg-gray-400'
-              }`}
-            ></div>
+            {isRecording && (
+              <div className="h-2.5 w-2.5 rounded-full ml-1 bg-green-500 animate-pulse"></div>
+            )}
           </h2>
 
           <div className="flex items-center gap-4">
@@ -131,7 +125,7 @@ const ChatContainer: React.FC = () => {
                 id="vad-mode"
                 checked={vadEnabled}
                 onCheckedChange={setVadEnabled}
-                disabled={isLoading}
+                disabled={isLoading || isConnected}
               />
               <Label htmlFor="vad-mode" className="text-sm">
                 VAD Mode
@@ -194,6 +188,7 @@ const ChatContainer: React.FC = () => {
                 onStartRecording={startRecording}
                 onStopRecording={stopRecording}
                 isRecording={isRecording}
+                vadEnabled={vadEnabled}
               />
             )}
           </div>

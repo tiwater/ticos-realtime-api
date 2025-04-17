@@ -124,7 +124,7 @@ export class RealtimeClient extends RealtimeEventHandler {
       handleServerEvent(event);
       this.sessionCreated = true;
     });
-    this.realtime.on('server.session.update', handleServerEvent);
+    this.realtime.on('server.session.updated', handleServerEvent);
     this.realtime.on('server.conversation.created', handleServerEvent);
     this.realtime.on('server.conversation.updated', handleServerEvent);
     this.realtime.on('server.conversation.item.created', (event: Event) => {
@@ -610,9 +610,9 @@ export class RealtimeClient extends RealtimeEventHandler {
 
   /**
    * Gets the turn detection type from config
-   * @returns {string | null} Turn detection type or null
+   * @returns {string | null | object} Turn detection configuration (might be a string, object with type, or null)
    */
-  public getTurnDetectionType(): string | null {
+  public getTurnDetectionType(): string | null | { type: string; [key: string]: any } {
     // Check for config with methods first
     if (
       this._configWithMethods &&

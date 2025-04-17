@@ -15,6 +15,8 @@ interface ChatInputProps {
   onStartRecording?: () => Promise<void>;
   onStopRecording?: () => Promise<void>;
   isRecording?: boolean;
+  // Add VAD mode prop
+  vadEnabled?: boolean;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
@@ -24,6 +26,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   onStartRecording,
   onStopRecording,
   isRecording: externalIsRecording = false,
+  vadEnabled = false,
 }) => {
   const [message, setMessage] = useState('');
   const [isLocalRecording, setIsLocalRecording] = useState(false);
@@ -206,6 +209,22 @@ const ChatInput: React.FC<ChatInputProps> = ({
           <Loader2 className="h-5 w-5 animate-spin text-brand" />
           <span className="text-sm">Processing audio...</span>
         </div>
+      ) : vadEnabled ? (
+        <div
+          className={cn(
+            'flex items-center justify-center gap-2 px-4 py-3 rounded-lg shadow-lg border transition-colors duration-200',
+            isRecordingActive
+              ? 'bg-red-100 text-red-600 border-red-300 animate-pulse'
+              : 'bg-brand/10 text-brand border-brand/30'
+          )}
+        >
+          <Mic className="h-5 w-5" />
+          <span className="text-sm font-medium">
+            {isRecordingActive
+              ? 'Listening... speak to send a message'
+              : 'Voice mode active - speak when ready'}
+          </span>
+        </div>
       ) : (
         <div className="relative">
           <div
@@ -221,7 +240,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
               onKeyDown={handleKeyDown}
               placeholder="Message Ticos..."
               className="flex-1 max-h-[150px] min-h-[44px] resize-none border-0 shadow-none focus-visible:ring-0 pl-4 pr-16 py-3"
-              disabled={disabled || isRecordingActive}
+              disabled={disabled || isRecordingActive || vadEnabled}
             />
 
             <div className="absolute bottom-1 right-1 flex gap-1">
@@ -239,7 +258,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                   onMouseLeave={isRecordingActive ? handleRecordRelease : undefined}
                   onTouchStart={!disabled ? handleRecordPress : undefined}
                   onTouchEnd={!disabled ? handleRecordRelease : undefined}
-                  disabled={disabled}
+                  disabled={disabled || vadEnabled}
                   title="Hold to record audio (release to send)"
                 >
                   <Mic className="h-4 w-4" />
@@ -251,7 +270,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                   variant="ghost"
                   className="h-8 w-8 rounded-md hover:bg-accent hover:text-accent-foreground"
                   onClick={handleSubmit}
-                  disabled={disabled || !message.trim()}
+                  disabled={disabled || !message.trim() || vadEnabled}
                   title="Send message"
                 >
                   <Send className="h-4 w-4" />

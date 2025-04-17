@@ -859,9 +859,12 @@ declare class RealtimeClient extends RealtimeEventHandler {
     reset(): void;
     /**
      * Gets the turn detection type from config
-     * @returns {string | null} Turn detection type or null
+     * @returns {string | null | object} Turn detection configuration (might be a string, object with type, or null)
      */
-    getTurnDetectionType(): string | null;
+    getTurnDetectionType(): string | null | {
+        type: string;
+        [key: string]: any;
+    };
     /**
      * Send user message content to the realtime service
      * @param {Content[]} content - Content for the message

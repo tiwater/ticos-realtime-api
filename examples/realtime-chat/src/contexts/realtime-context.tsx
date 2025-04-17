@@ -189,18 +189,12 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
       }
     });
 
-    clientRef.current.on('*', (event: any) => {
-      console.log('event', event);
-    });
-
     // Handle direct connection events (these should now work with our SDK fix)
     clientRef.current.on('client.connected', () => {
-      console.log('Direct client.connected event received');
       setIsConnected(true);
     });
 
     clientRef.current.on('client.disconnected', () => {
-      console.log('Direct client.disconnected event received');
       setIsConnected(false);
 
       // Clean up audio resources
@@ -229,7 +223,6 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
     });
 
     clientRef.current.on('client.error', (error: any) => {
-      console.log('Direct client.error event received', error);
       setError(new Error('Error connecting to Realtime API'));
     });
 
@@ -245,12 +238,10 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
 
       // Handle transcript delta
       if (delta?.transcript) {
-        console.log('Transcript delta received:', delta.transcript);
         // The transcript is already processed by the SDK's event processor
       }
 
       if (item?.status === 'completed' && item.formatted?.audio?.length) {
-        console.log('conversation.updated (completed)', item, delta);
         let audioData = new Int16Array(item.formatted.audio);
 
         // Create WAV header
@@ -282,13 +273,6 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
         });
 
         await WavRecorder.decode(wavBlob, SAMPLE_RATE).then((decodedAudio) => {
-          console.log('Decoded audio:', {
-            blobSize: decodedAudio.blob.size,
-            blobType: decodedAudio.blob.type,
-            bufferLength: decodedAudio.audioBuffer.length,
-            duration: decodedAudio.audioBuffer.duration,
-          });
-
           item.formatted.file = {
             url: decodedAudio.url,
             blob: decodedAudio.blob,
@@ -300,7 +284,6 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
 
     // Handle conversation interrupted event
     clientRef.current.on('conversation.interrupted', () => {
-      console.log('Conversation interrupted');
       if (playerRef.current) {
         playerRef.current.interrupt();
       }
@@ -351,12 +334,21 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
         hearing: {
           input_audio_format: 'pcm16',
           input_audio_transcription: null,
-          turn_detection: vadEnabled ? { type: 'server_vad' } : null,
+          turn_detection: vadEnabled
+            ? {
+                type: 'server_vad',
+                threshold: 0.09,
+                prefix_padding_ms: 300,
+                silence_duration_ms: 520,
+              }
+            : null,
         },
       });
 
-      // If VAD is enabled, start recording automatically
-      if (vadEnabled && clientRef.current.getTurnDetectionType() === 'server_vad') {
+      setIsConnected(true);
+
+      // If VAD is enabled, start recording right away
+      if (vadEnabled) {
         await startRecording();
       }
     } catch (err) {
@@ -370,7 +362,10 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
 
   // Start audio recording
   const startRecording = async () => {
-    if (isRecording) return;
+    // Skip if already recording to avoid doubling up
+    if (isRecording) {
+      return;
+    }
 
     try {
       // Make sure audio is initialized
@@ -379,17 +374,16 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
       }
 
       if (!recorderRef.current) {
+        console.error('Audio recorder not initialized after initAudio call');
         throw new Error('Audio recorder not initialized');
       }
 
       // End any existing recording session before starting a new one
       try {
-        if (recorderRef.current) {
-          // Check if recorder needs to be ended first
-          const status = recorderRef.current.getStatus();
-          if (status !== 'ended') {
-            await recorderRef.current.end();
-          }
+        // Check if recorder needs to be ended first
+        const status = recorderRef.current.getStatus();
+        if (status !== 'ended') {
+          await recorderRef.current.end();
         }
       } catch (endError) {
         console.warn('Error ending previous recording session:', endError);
@@ -422,10 +416,19 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
 
       setIsRecording(true);
     } catch (err) {
-      console.error('Error starting recording', err);
+      console.error('Error starting recording:', err);
       setError(
         new Error('Error starting recording: ' + (err instanceof Error ? err.message : String(err)))
       );
+
+      // Try to recover the recorder state
+      try {
+        if (recorderRef.current) {
+          await recorderRef.current.end();
+        }
+      } catch (cleanupErr) {
+        console.error('Failed to clean up recorder after error:', cleanupErr);
+      }
     }
   };
 
@@ -582,27 +585,6 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
       throw error;
     }
   };
-
-  // Update VAD setting
-  useEffect(() => {
-    if (clientRef.current && isConnected) {
-      clientRef.current.updateConfig({
-        hearing: {
-          input_audio_format: 'pcm16',
-          input_audio_transcription: null,
-          turn_detection: vadEnabled ? { type: 'server_vad' } : null,
-        },
-      });
-
-      // If VAD is enabled, start recording automatically
-      if (vadEnabled && clientRef.current.getTurnDetectionType() === 'server_vad') {
-        startRecording();
-      } else if (!vadEnabled && isRecording) {
-        // If VAD is disabled but we're recording, stop recording
-        stopRecording();
-      }
-    }
-  }, [vadEnabled, isConnected]);
 
   const value = {
     client: clientRef.current,
