@@ -173,22 +173,22 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
           count: 1,
         };
 
-          setEvents((prevEvents) => {
-            // Check if this is a duplicate of the last event
-            const lastEvent = prevEvents[prevEvents.length - 1];
+        setEvents((prevEvents) => {
+          // Check if this is a duplicate of the last event
+          const lastEvent = prevEvents[prevEvents.length - 1];
 
-            if (lastEvent && lastEvent.type === newEvent.type) {
-              // Update the count for duplicate events
-              const updatedEvents = [...prevEvents];
-              updatedEvents[prevEvents.length - 1] = {
-                ...lastEvent,
-                count: (lastEvent.count || 1) + 1,
-              };
-              return updatedEvents;
-            }
+          if (lastEvent && lastEvent.type === newEvent.type) {
+            // Update the count for duplicate events
+            const updatedEvents = [...prevEvents];
+            updatedEvents[prevEvents.length - 1] = {
+              ...lastEvent,
+              count: (lastEvent.count || 1) + 1,
+            };
+            return updatedEvents;
+          }
 
-            // Add new event at the end (oldest first)
-            const updatedEvents = [...prevEvents, newEvent];
+          // Add new event at the end (oldest first)
+          const updatedEvents = [...prevEvents, newEvent];
 
           // Keep only the latest 100 events
           if (updatedEvents.length > 100) {
