@@ -6,9 +6,10 @@ Official WebSocket-based Realtime API SDK for Ticos. This SDK provides real-time
 
 - 🚀 Real-time bidirectional communication
 - 🎯 Support for text, audio, and image messages
-- 🛠️ Tool registration and execution
+- 🛠️ Function calling and tool registration
 - 🔄 Session management
 - 💬 Conversation state tracking
+- 🔒 Enhanced error handling and type safety
 - 📦 TypeScript support out of the box
 
 ## Quick Start
@@ -27,7 +28,7 @@ pnpm install
 pnpm build
 
 # Navigate to the demo project
-cd examples/realtime-chat-demo
+cd examples/realtime-chat
 
 # Install demo dependencies
 pnpm install
@@ -68,38 +69,20 @@ const client = new RealtimeClient();
 // Connect to the Ticos Realtime API
 await client.connect();
 
-// Create a conversation
-const conversation = await client.createConversation();
-
 // Send a message
-await conversation.sendMessage('Hello, Ticos!');
+client.sendUserMessageContent([{ type: 'text', text: 'Hello, Ticos!' }]);
 
-// Register event handlers
-client.on('message', (event) => {
-  console.log('Received message:', event);
+// Listen for responses
+client.on('conversation.updated', (event) => {
+  if (event.item.role === 'assistant') {
+    console.log('Assistant response:', event.item.formatted.text);
+  }
 });
+
+// Wait for a completed message
+const { item } = await client.waitForNextCompletedItem();
+console.log('Completed response:', item);
 ```
-
-## SDK Structure
-
-The SDK is organized into the following structure:
-
-1. `/src/core/` - Core functionality
-   - `client.ts` - Main client class
-   - `realtime.ts` - Realtime API communication
-   - `conversation.ts` - Conversation management
-   - `event-handler.ts` - Event handling system
-
-2. `/src/types/` - Type definitions
-   - `client.ts` - Client-related types
-   - `conversation.ts` - Conversation-related types
-   - `events.ts` - Event-related types
-   - `index.ts` - Type exports
-
-3. `/src/utils/` - Utilities
-   - `index.ts` - Utility functions
-
-4. `/src/index.ts` - Main entry point with organized exports
 
 ## Documentation
 
@@ -117,35 +100,35 @@ This will generate and serve the API documentation locally.
 
 The Ticos Realtime API enables real-time bidirectional communication between your application and Ticos AI models through WebSockets.
 
-### Tool Registration and Execution
+### Function Calling and Tool Registration
 
 Register custom tools that can be called by the AI:
 
 ```typescript
-await client.api.registerTool({
-  name: 'search',
-  description: 'Search for information',
-  parameters: {
-    type: 'object',
-    properties: {
-      query: { type: 'string', description: 'Search query' }
+// Register a tool
+client.registerTool(
+  {
+    name: 'search',
+    description: 'Search for information',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search query' },
+      },
+      required: ['query'],
     },
-    required: ['query']
+  },
+  async (parameters) => {
+    // Tool implementation
+    const result = await yourSearchImplementation(parameters.query);
+    return result;
   }
-});
+);
 
-// Handle tool calls
-client.on('tool.call', async (event) => {
-  const { tool_name, parameters, call_id } = event;
-  
-  // Process the tool call
-  const result = await yourToolImplementation(parameters);
-  
-  // Send the result back
-  await client.api.sendToolResponse({
-    call_id,
-    result
-  });
+// Tools are automatically called when the model invokes them
+// Listen for completed items to see if a tool was executed
+client.on('conversation.item.completed', (event) => {
+  console.log('Item completed:', event.item);
 });
 ```
 
@@ -155,16 +138,19 @@ Send and receive audio messages:
 
 ```typescript
 // Send audio
-await conversation.sendMessage({
-  type: 'audio',
-  data: audioBuffer, // ArrayBuffer containing audio data
-  transcript: 'Optional transcript'
-});
+const audioBuffer = new Int16Array([
+  /* your audio data */
+]);
+client.sendUserMessageContent([{ type: 'audio', audio: audioBuffer }]);
+
+// Or stream audio input
+client.appendInputAudio(audioBuffer);
+client.createResponse();
 
 // Listen for audio responses
-client.on('message', (event) => {
-  if (event.type === 'audio') {
-    const audioData = event.audio;
+client.on('conversation.updated', (event) => {
+  if (event.item.formatted?.audio) {
+    const audioData = event.item.formatted.audio;
     // Process audio data
   }
 });
