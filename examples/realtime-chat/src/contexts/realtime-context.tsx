@@ -382,6 +382,20 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
         throw new Error('Audio recorder not initialized');
       }
 
+      // End any existing recording session before starting a new one
+      try {
+        if (recorderRef.current) {
+          // Check if recorder needs to be ended first
+          const status = recorderRef.current.getStatus();
+          if (status !== 'ended') {
+            await recorderRef.current.end();
+          }
+        }
+      } catch (endError) {
+        console.warn('Error ending previous recording session:', endError);
+        // Continue anyway, as we'll try to start a new session
+      }
+
       // Begin recording session
       await recorderRef.current.begin();
 
@@ -513,10 +527,22 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
         clientRef.current.disconnect();
       }
 
-      // Stop recording if active
-      if (recorderRef.current && isRecording) {
-        await recorderRef.current.end();
-        setIsRecording(false);
+      // Stop recording if active and clean up recorder
+      if (recorderRef.current) {
+        try {
+          const status = recorderRef.current.getStatus();
+          if (status !== 'ended') {
+            // If recording, pause first
+            if (status === 'recording') {
+              await recorderRef.current.pause();
+            }
+            // End the session
+            await recorderRef.current.end();
+          }
+          setIsRecording(false);
+        } catch (endError) {
+          console.warn('Error cleaning up recorder during disconnect:', endError);
+        }
       }
 
       // Interrupt audio player

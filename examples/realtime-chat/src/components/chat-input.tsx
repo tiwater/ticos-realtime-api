@@ -172,7 +172,12 @@ const ChatInput: React.FC<ChatInputProps> = ({
   // Handle recording button press
   const handleRecordPress = async () => {
     if (useRealTimeRecording && onStartRecording) {
-      await onStartRecording();
+      try {
+        await onStartRecording();
+      } catch (error) {
+        console.error('Error starting recording:', error);
+        toast.error('Failed to start recording. Please try again.');
+      }
     } else {
       await startLocalRecording();
     }
