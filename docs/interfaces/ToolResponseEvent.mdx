@@ -1,0 +1,51 @@
+[**Ticos Realtime API v0.3.1**](../index.mdx)
+
+***
+
+# Interface: ToolResponseEvent
+
+Tool response event payload
+
+## Extends
+
+- [`Event`](Event.mdx)
+
+## Indexable
+
+\[`key`: `string`\]: `any`
+
+## Properties
+
+### call\_id
+
+> **call\_id**: `string`
+
+***
+
+### error?
+
+> `optional` **error**: `object`
+
+#### code
+
+> **code**: `string`
+
+#### message
+
+> **message**: `string`
+
+***
+
+### result?
+
+> `optional` **result**: `Record`\<`string`, `any`\>
+
+***
+
+### type
+
+> **type**: `string`
+
+#### Inherited from
+
+[`Event`](Event.mdx).[`type`](Event.mdx#type)

@@ -1,9 +1,9 @@
 import { Event } from '../types/events';
 
 /**
- * EventHandler callback type definition
+ * Type definition for event handler callbacks
  */
-type EventHandlerCallbackType<T extends Event = Event> = (event: T) => void;
+export type EventHandlerCallbackType<T extends Event = Event> = (event: T) => void;
 
 /**
  * Utility function to create a promise that resolves after a specified time

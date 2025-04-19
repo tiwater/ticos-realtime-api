@@ -2,12 +2,11 @@ import type { ItemType, Content } from '../types/conversation';
 import { RealtimeUtils } from '../utils';
 
 /**
- * Contains text and audio information about an item
- * Can also be used as a delta
+ * Interface for content deltas in conversation items
  */
-interface ItemContentDelta {
+export interface ItemContentDelta {
   text?: string;
-  audio?: Int16Array;
+  audio?: Int16Array | ArrayBuffer;
   arguments?: string;
   transcript?: string;
   output?: string;

@@ -1,0 +1,518 @@
+[**Ticos Realtime API v0.3.1**](../index.mdx)
+
+***
+
+# Class: RealtimeAPI
+
+Main client for interacting with the Realtime API.
+Provides WebSocket-based communication with real-time capabilities.
+
+ RealtimeAPI
+
+## Example
+
+```typescript
+const api = new RealtimeAPI({
+  url: 'wss://stardust.ticos.cn/realtime',
+  apiKey: 'your-api-key'
+});
+
+await api.connect();
+api.send('message', { text: 'Hello!' });
+```
+
+## Extends
+
+- [`RealtimeEventHandler`](RealtimeEventHandler.mdx)
+
+## Constructors
+
+### Constructor
+
+> **new RealtimeAPI**(`settings`): `RealtimeAPI`
+
+Creates a new RealtimeAPI instance.
+
+#### Parameters
+
+##### settings
+
+[`ClientOptions`](../interfaces/ClientOptions.mdx) = `...`
+
+Configuration settings for the client
+
+#### Returns
+
+`RealtimeAPI`
+
+#### Throws
+
+If API key is provided in browser without explicit permission
+
+#### Overrides
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`constructor`](RealtimeEventHandler.mdx#constructor)
+
+## Methods
+
+### clearEventHandlers()
+
+> **clearEventHandlers**(): `boolean`
+
+Clears all event handlers
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`clearEventHandlers`](RealtimeEventHandler.mdx#cleareventhandlers)
+
+***
+
+### connect()
+
+> **connect**(): `Promise`\<`void`\>
+
+Establishes a WebSocket connection to the Realtime API server.
+
+#### Returns
+
+`Promise`\<`void`\>
+
+Resolves when the connection is established
+
+#### Throws
+
+If connection fails
+
+#### Example
+
+```typescript
+await api.connect();
+console.log('Connected to Realtime API');
+```
+
+***
+
+### disconnect()
+
+> **disconnect**(): `void`
+
+Closes the WebSocket connection.
+
+#### Returns
+
+`void`
+
+#### Example
+
+```typescript
+api.disconnect();
+console.log('Disconnected from Realtime API');
+```
+
+***
+
+### dispatch()
+
+> **dispatch**\<`T`\>(`eventName`, `event`): `boolean`
+
+Executes all events in the order they were added, with .on() event handlers executing before .onNext() handlers
+Supports wildcard patterns for event names using '*'
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+Event name to dispatch
+
+##### event
+
+`T`
+
+Event data to pass to handlers
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`dispatch`](RealtimeEventHandler.mdx#dispatch)
+
+***
+
+### isConnected()
+
+> **isConnected**(): `boolean`
+
+Checks if the client is currently connected to the server.
+
+#### Returns
+
+`boolean`
+
+True if connected, false otherwise
+
+#### Example
+
+```typescript
+if (api.isConnected()) {
+  console.log('Connected to Realtime API');
+}
+```
+
+***
+
+### off()
+
+> **off**\<`T`\>(`eventName`, `callback?`): `boolean`
+
+Turns off event listening for specific events
+Calling without a callback will remove all listeners for the event
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+Event name to stop listening to
+
+##### callback?
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Optional specific callback to remove
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`off`](RealtimeEventHandler.mdx#off)
+
+***
+
+### offNext()
+
+> **offNext**\<`T`\>(`eventName`, `callback?`): `boolean`
+
+Turns off event listening for the next event of a specific type
+Calling without a callback will remove all listeners for the next event
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+Event name to stop listening to
+
+##### callback?
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Optional specific callback to remove
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`offNext`](RealtimeEventHandler.mdx#offnext)
+
+***
+
+### on()
+
+> **on**\<`T`\>(`eventName`, `callback`): [`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Listen to specific events
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+The name of the event to listen to (supports wildcards with '*')
+
+##### callback
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Code to execute on event
+
+#### Returns
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+The callback function
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`on`](RealtimeEventHandler.mdx#on)
+
+***
+
+### onNext()
+
+> **onNext**\<`T`\>(`eventName`, `callback`): [`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Listen for the next event of a specified type
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+The name of the event to listen to (supports wildcards with '*')
+
+##### callback
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Code to execute on event
+
+#### Returns
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+The callback function
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`onNext`](RealtimeEventHandler.mdx#onnext)
+
+***
+
+### registerTool()
+
+> **registerTool**(`name`, `definition`): `boolean`
+
+Registers a tool with the server.
+
+#### Parameters
+
+##### name
+
+`string`
+
+Tool name
+
+##### definition
+
+`object`
+
+Tool definition
+
+#### Returns
+
+`boolean`
+
+True if sent immediately, false if queued
+
+#### Example
+
+```typescript
+api.registerTool('calculator', {
+  description: 'Performs calculations',
+  parameters: {
+    type: 'object',
+    properties: {
+      expression: {
+        type: 'string',
+        description: 'The expression to calculate'
+      }
+    },
+    required: ['expression']
+  }
+});
+```
+
+***
+
+### send()
+
+> **send**(`type`, `payload`): `boolean`
+
+Sends a message to the server.
+If not connected, the message will fail rather than being queued.
+
+#### Parameters
+
+##### type
+
+`string`
+
+Message type
+
+##### payload
+
+`Record`\<`string`, `any`\> = `{}`
+
+Message payload
+
+#### Returns
+
+`boolean`
+
+True if sent successfully, false if failed
+
+#### Example
+
+```typescript
+api.send('message', { text: 'Hello!' });
+```
+
+***
+
+### sendToolError()
+
+> **sendToolError**(`toolCallId`, `error`): `boolean`
+
+Sends a tool error to the server.
+
+#### Parameters
+
+##### toolCallId
+
+`string`
+
+Tool call ID
+
+##### error
+
+`string`
+
+Error message
+
+#### Returns
+
+`boolean`
+
+True if sent immediately, false if queued
+
+#### Example
+
+```typescript
+api.sendToolError('tool-call-123', 'Invalid expression');
+```
+
+***
+
+### sendToolResponse()
+
+> **sendToolResponse**(`toolCallId`, `response`): `boolean`
+
+Sends a tool response to the server.
+
+#### Parameters
+
+##### toolCallId
+
+`string`
+
+Tool call ID
+
+##### response
+
+`any`
+
+Tool response
+
+#### Returns
+
+`boolean`
+
+True if sent immediately, false if queued
+
+#### Example
+
+```typescript
+api.sendToolResponse('tool-call-123', { result: 42 });
+```
+
+***
+
+### waitForNext()
+
+> **waitForNext**\<`T`\>(`eventName`, `timeout?`): `Promise`\<`null` \| `T`\>
+
+Waits for next event of a specific type and returns the payload
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+Event name to wait for
+
+##### timeout?
+
+Optional timeout in milliseconds
+
+`null` | `number`
+
+#### Returns
+
+`Promise`\<`null` \| `T`\>
+
+Promise that resolves with the event data or null if timed out
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`waitForNext`](RealtimeEventHandler.mdx#waitfornext)

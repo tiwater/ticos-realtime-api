@@ -1,0 +1,111 @@
+[**Ticos Realtime API v0.3.1**](../index.mdx)
+
+***
+
+# Interface: ToolDefinition
+
+Tool definition for registering tools with the client
+
+## Properties
+
+### code
+
+> **code**: `string`
+
+Tool implementation code
+
+***
+
+### description
+
+> **description**: `string`
+
+Description of what the tool does
+
+***
+
+### execution\_type
+
+> **execution\_type**: `"synchronous"` \| `"asynchronous"`
+
+Tool execution type
+
+***
+
+### id?
+
+> `optional` **id**: `string`
+
+Optional unique identifier
+
+***
+
+### language
+
+> **language**: `"python"` \| `"shell"`
+
+Programming language of the code
+
+***
+
+### name
+
+> **name**: `string`
+
+Name of the tool
+
+***
+
+### operation\_mode
+
+> **operation\_mode**: `"client_mode"` \| `"server_mode"`
+
+Tool operation mode
+
+***
+
+### parameters
+
+> **parameters**: `object`
+
+Parameters schema
+
+#### properties
+
+> **properties**: `Record`\<`string`, `ToolParameter`\>
+
+#### type
+
+> **type**: `"object"`
+
+***
+
+### platform
+
+> **platform**: `"linux"` \| `"macos"` \| `"windows"`
+
+Operating system platform
+
+***
+
+### required
+
+> **required**: `string`[]
+
+Required parameter names
+
+***
+
+### result\_handling
+
+> **result\_handling**: `"process_in_llm"` \| `"process_in_client"` \| `"ignore_result"`
+
+How to handle the tool's result
+
+***
+
+### type
+
+> **type**: `"function"`
+
+Tool type, always "function"

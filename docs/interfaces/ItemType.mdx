@@ -1,0 +1,67 @@
+[**Ticos Realtime API v0.3.1**](../index.mdx)
+
+***
+
+# Interface: ItemType
+
+Base item type for conversation items
+
+## Properties
+
+### arguments?
+
+> `optional` **arguments**: `string`
+
+***
+
+### call\_id?
+
+> `optional` **call\_id**: `string`
+
+***
+
+### content
+
+> **content**: [`Content`](../type-aliases/Content.mdx)[]
+
+***
+
+### formatted?
+
+> `optional` **formatted**: [`FormattedProperties`](FormattedProperties.mdx)
+
+***
+
+### id
+
+> **id**: `string`
+
+***
+
+### name?
+
+> `optional` **name**: `string`
+
+***
+
+### output?
+
+> `optional` **output**: `string`
+
+***
+
+### role?
+
+> `optional` **role**: `"user"` \| `"assistant"` \| `"system"`
+
+***
+
+### status?
+
+> `optional` **status**: `"completed"` \| `"in_progress"` \| `"incomplete"`
+
+***
+
+### type
+
+> **type**: `"text"` \| `"audio"` \| `"image"` \| `"message"` \| `"tool_call"` \| `"tool_response"` \| `"function_call"` \| `"function_call_output"`

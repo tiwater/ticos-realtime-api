@@ -1,0 +1,769 @@
+[**Ticos Realtime API v0.3.1**](../index.mdx)
+
+***
+
+# Class: RealtimeClient
+
+High-level client for the Realtime API that manages conversations and tools.
+Provides an interface for connecting to the API, managing conversations,
+and handling tool registrations and executions.
+
+## Extends
+
+- [`RealtimeEventHandler`](RealtimeEventHandler.mdx)
+
+## Constructors
+
+### Constructor
+
+> **new RealtimeClient**(`settings?`, `config?`): `RealtimeClient`
+
+Creates a new RealtimeClient instance.
+
+#### Parameters
+
+##### settings?
+
+[`ClientOptions`](../interfaces/ClientOptions.mdx)
+
+Configuration settings for the client
+
+##### config?
+
+`any`
+
+Optional configuration settings or config object with methods
+
+#### Returns
+
+`RealtimeClient`
+
+#### Overrides
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`constructor`](RealtimeEventHandler.mdx#constructor)
+
+## Properties
+
+### config
+
+> `protected` **config**: [`RealtimeConfig`](../interfaces/RealtimeConfig.mdx)
+
+***
+
+### conversation
+
+> `protected` **conversation**: [`RealtimeConversation`](RealtimeConversation.mdx)
+
+***
+
+### inputAudioBuffer
+
+> `protected` **inputAudioBuffer**: `Int16Array`
+
+***
+
+### realtime
+
+> `protected` **realtime**: [`RealtimeAPI`](RealtimeAPI.mdx)
+
+***
+
+### sessionCreated
+
+> `protected` **sessionCreated**: `boolean` = `false`
+
+***
+
+### tools
+
+> `protected` **tools**: `Record`\<`string`, \{ `definition`: [`ToolDefinition`](../interfaces/ToolDefinition.mdx); `handler`: `Function`; \}\> = `{}`
+
+## Methods
+
+### addTool()
+
+> **addTool**(`tool`): `void`
+
+Adds a tool to the configuration
+
+#### Parameters
+
+##### tool
+
+[`ToolDefinition`](../interfaces/ToolDefinition.mdx)
+
+Tool definition to add
+
+#### Returns
+
+`void`
+
+***
+
+### appendInputAudio()
+
+> **appendInputAudio**(`arrayBuffer`): `boolean`
+
+Appends user audio to the existing audio buffer
+
+#### Parameters
+
+##### arrayBuffer
+
+Audio data to append
+
+`ArrayBuffer` | `Int16Array`\<`ArrayBufferLike`\>
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+***
+
+### cancelResponse()
+
+> **cancelResponse**(`id`, `sampleCount?`): `object`
+
+Cancels the ongoing server generation and truncates ongoing generation, if applicable
+If no id provided, will simply call `cancel_generation` command
+
+#### Parameters
+
+##### id
+
+`string`
+
+The id of the message to cancel
+
+##### sampleCount?
+
+`number` = `0`
+
+The number of samples to truncate past for the ongoing generation
+
+#### Returns
+
+`object`
+
+The canceled item or null
+
+##### item
+
+> **item**: `null` \| [`ItemType`](../interfaces/ItemType.mdx)
+
+***
+
+### clearEventHandlers()
+
+> **clearEventHandlers**(): `boolean`
+
+Clears all event handlers
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`clearEventHandlers`](RealtimeEventHandler.mdx#cleareventhandlers)
+
+***
+
+### connect()
+
+> **connect**(): `Promise`\<`void`\>
+
+Establishes a connection to the Realtime API server.
+
+#### Returns
+
+`Promise`\<`void`\>
+
+Resolves when the connection is established
+
+#### Example
+
+```typescript
+await client.connect();
+```
+
+***
+
+### createResponse()
+
+> **createResponse**(): `boolean`
+
+Forces a model response generation
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+***
+
+### disconnect()
+
+> **disconnect**(): `void`
+
+Closes the connection to the Realtime API server.
+
+#### Returns
+
+`void`
+
+#### Example
+
+```typescript
+client.disconnect();
+```
+
+***
+
+### dispatch()
+
+> **dispatch**\<`T`\>(`eventName`, `event`): `boolean`
+
+Executes all events in the order they were added, with .on() event handlers executing before .onNext() handlers
+Supports wildcard patterns for event names using '*'
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+Event name to dispatch
+
+##### event
+
+`T`
+
+Event data to pass to handlers
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`dispatch`](RealtimeEventHandler.mdx#dispatch)
+
+***
+
+### executeTool()
+
+> **executeTool**(`name`, `args`): `Promise`\<`any`\>
+
+Executes a registered tool with the provided arguments.
+
+#### Parameters
+
+##### name
+
+`string`
+
+Name of the tool to execute
+
+##### args
+
+`Record`\<`string`, `any`\>
+
+Arguments to pass to the tool
+
+#### Returns
+
+`Promise`\<`any`\>
+
+Result of the tool execution
+
+#### Throws
+
+If the tool is not registered
+
+#### Example
+
+```typescript
+const result = await client.executeTool('calculate', { expression: '2 + 2' });
+console.log(result); // 4
+```
+
+***
+
+### getConversationItems()
+
+> **getConversationItems**(): [`ItemType`](../interfaces/ItemType.mdx)[]
+
+Returns the current conversation items.
+
+#### Returns
+
+[`ItemType`](../interfaces/ItemType.mdx)[]
+
+The current conversation items
+
+***
+
+### getSessionPayload()
+
+> `protected` **getSessionPayload**(): `object`
+
+#### Returns
+
+`object`
+
+##### session
+
+> **session**: [`RealtimeConfig`](../interfaces/RealtimeConfig.mdx)
+
+***
+
+### getTools()
+
+> **getTools**(): [`ToolDefinition`](../interfaces/ToolDefinition.mdx)[]
+
+Gets all registered tools
+
+#### Returns
+
+[`ToolDefinition`](../interfaces/ToolDefinition.mdx)[]
+
+Array of tool definitions
+
+***
+
+### getTurnDetectionType()
+
+> **getTurnDetectionType**(): `null` \| `string` \| \{[`key`: `string`]: `any`; `type`: `string`; \}
+
+Gets the turn detection type from config
+
+#### Returns
+
+`null` \| `string` \| \{[`key`: `string`]: `any`; `type`: `string`; \}
+
+Turn detection configuration (might be a string, object with type, or null)
+
+***
+
+### isConnected()
+
+> **isConnected**(): `boolean`
+
+Checks if the client is currently connected to the server.
+
+#### Returns
+
+`boolean`
+
+True if connected, false otherwise
+
+***
+
+### off()
+
+> **off**\<`T`\>(`eventName`, `callback?`): `boolean`
+
+Turns off event listening for specific events
+Calling without a callback will remove all listeners for the event
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+Event name to stop listening to
+
+##### callback?
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Optional specific callback to remove
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`off`](RealtimeEventHandler.mdx#off)
+
+***
+
+### offNext()
+
+> **offNext**\<`T`\>(`eventName`, `callback?`): `boolean`
+
+Turns off event listening for the next event of a specific type
+Calling without a callback will remove all listeners for the next event
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+Event name to stop listening to
+
+##### callback?
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Optional specific callback to remove
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`offNext`](RealtimeEventHandler.mdx#offnext)
+
+***
+
+### on()
+
+> **on**\<`T`\>(`eventName`, `callback`): [`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Listen to specific events
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+The name of the event to listen to (supports wildcards with '*')
+
+##### callback
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Code to execute on event
+
+#### Returns
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+The callback function
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`on`](RealtimeEventHandler.mdx#on)
+
+***
+
+### onNext()
+
+> **onNext**\<`T`\>(`eventName`, `callback`): [`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Listen for the next event of a specified type
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+The name of the event to listen to (supports wildcards with '*')
+
+##### callback
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Code to execute on event
+
+#### Returns
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+The callback function
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`onNext`](RealtimeEventHandler.mdx#onnext)
+
+***
+
+### registerTool()
+
+> **registerTool**(`definition`, `handler`): `void`
+
+Registers a new tool that can be used during conversations.
+
+#### Parameters
+
+##### definition
+
+[`ToolDefinition`](../interfaces/ToolDefinition.mdx)
+
+Tool definition including name and description
+
+##### handler
+
+`Function`
+
+Function to execute when the tool is called
+
+#### Returns
+
+`void`
+
+#### Throws
+
+If the tool definition doesn't have a name
+
+#### Example
+
+```typescript
+client.registerTool({
+  name: 'calculate',
+  description: 'Performs a calculation'
+}, (args) => eval(args.expression));
+```
+
+***
+
+### removeTool()
+
+> **removeTool**(`name`): `void`
+
+Removes a tool from the configuration
+
+#### Parameters
+
+##### name
+
+`string`
+
+Name of the tool to remove
+
+#### Returns
+
+`void`
+
+***
+
+### reset()
+
+> **reset**(): `void`
+
+Resets the client to its initial state.
+Clears all configuration and registered tools.
+
+#### Returns
+
+`void`
+
+#### Example
+
+```typescript
+client.reset();
+```
+
+***
+
+### sendUserMessageContent()
+
+> **sendUserMessageContent**(`content`): `boolean`
+
+Send user message content to the realtime service
+
+#### Parameters
+
+##### content
+
+[`Content`](../type-aliases/Content.mdx)[]
+
+Content for the message
+
+#### Returns
+
+`boolean`
+
+True if message was sent successfully
+
+***
+
+### unregisterTool()
+
+> **unregisterTool**(`name`): `void`
+
+Removes a registered tool.
+
+#### Parameters
+
+##### name
+
+`string`
+
+Name of the tool to unregister
+
+#### Returns
+
+`void`
+
+#### Example
+
+```typescript
+client.unregisterTool('calculate');
+```
+
+***
+
+### updateConfig()
+
+> **updateConfig**(`updates`): `void`
+
+Updates the configuration with the provided partial config
+
+#### Parameters
+
+##### updates
+
+`Partial`\<[`RealtimeConfig`](../interfaces/RealtimeConfig.mdx)\>
+
+Configuration updates to apply
+
+#### Returns
+
+`void`
+
+***
+
+### updateSession()
+
+> `protected` **updateSession**(): `void`
+
+Updates the session configuration on the server.
+Called internally when configuration or tools change.
+
+#### Returns
+
+`void`
+
+***
+
+### waitForNext()
+
+> **waitForNext**\<`T`\>(`eventName`, `timeout?`): `Promise`\<`null` \| `T`\>
+
+Waits for next event of a specific type and returns the payload
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+Event name to wait for
+
+##### timeout?
+
+Optional timeout in milliseconds
+
+`null` | `number`
+
+#### Returns
+
+`Promise`\<`null` \| `T`\>
+
+Promise that resolves with the event data or null if timed out
+
+#### Inherited from
+
+[`RealtimeEventHandler`](RealtimeEventHandler.mdx).[`waitForNext`](RealtimeEventHandler.mdx#waitfornext)
+
+***
+
+### waitForNextCompletedItem()
+
+> **waitForNextCompletedItem**(): `Promise`\<\{ `item`: `null` \| [`ItemType`](../interfaces/ItemType.mdx); \}\>
+
+Waits for the next item to be completed in the conversation.
+
+#### Returns
+
+`Promise`\<\{ `item`: `null` \| [`ItemType`](../interfaces/ItemType.mdx); \}\>
+
+The completed conversation item or null
+
+#### Example
+
+```typescript
+const { item } = await client.waitForNextCompletedItem();
+if (item) {
+  console.log('Completed item:', item);
+}
+```
+
+***
+
+### waitForNextItem()
+
+> **waitForNextItem**(): `Promise`\<\{ `item`: `null` \| [`ItemType`](../interfaces/ItemType.mdx); \}\>
+
+Waits for the next item to be added to the conversation.
+
+#### Returns
+
+`Promise`\<\{ `item`: `null` \| [`ItemType`](../interfaces/ItemType.mdx); \}\>
+
+The next conversation item or null
+
+#### Example
+
+```typescript
+const { item } = await client.waitForNextItem();
+if (item) {
+  console.log('New item:', item);
+}
+```

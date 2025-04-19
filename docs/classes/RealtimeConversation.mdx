@@ -1,0 +1,139 @@
+[**Ticos Realtime API v0.3.1**](../index.mdx)
+
+***
+
+# Class: RealtimeConversation
+
+Manages the state and events of a realtime conversation.
+Handles conversation items, audio queuing, and event processing.
+
+ RealtimeConversation
+
+## Constructors
+
+### Constructor
+
+> **new RealtimeConversation**(): `RealtimeConversation`
+
+Creates a new RealtimeConversation instance.
+Initializes empty conversation state.
+
+#### Returns
+
+`RealtimeConversation`
+
+## Properties
+
+### defaultFrequency
+
+> `readonly` **defaultFrequency**: `number` = `24000`
+
+Default audio sampling frequency in Hz
+
+## Methods
+
+### clear()
+
+> **clear**(): `boolean`
+
+Clears the conversation history and resets to default
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+***
+
+### getItem()
+
+> **getItem**(`id`): `null` \| [`ItemType`](../interfaces/ItemType.mdx)
+
+Retrieves a item by id
+
+#### Parameters
+
+##### id
+
+`string`
+
+Item ID
+
+#### Returns
+
+`null` \| [`ItemType`](../interfaces/ItemType.mdx)
+
+The item or null if not found
+
+***
+
+### getItems()
+
+> **getItems**(): [`ItemType`](../interfaces/ItemType.mdx)[]
+
+Gets all items in the conversation.
+
+#### Returns
+
+[`ItemType`](../interfaces/ItemType.mdx)[]
+
+Array of all conversation items
+
+***
+
+### processEvent()
+
+> **processEvent**(`event`, ...`args`): `object`
+
+Process an event from the WebSocket server and compose items
+
+#### Parameters
+
+##### event
+
+`any`
+
+The event to process
+
+##### args
+
+...`any`[]
+
+Additional arguments
+
+#### Returns
+
+`object`
+
+Processed item and delta
+
+##### delta
+
+> **delta**: `null` \| [`ItemContentDelta`](../interfaces/ItemContentDelta.mdx)
+
+##### item
+
+> **item**: `null` \| [`ItemType`](../interfaces/ItemType.mdx)
+
+***
+
+### queueInputAudio()
+
+> **queueInputAudio**(`audio`): `Int16Array`
+
+Queues audio data for processing.
+
+#### Parameters
+
+##### audio
+
+`Int16Array`
+
+Audio data to queue
+
+#### Returns
+
+`Int16Array`
+
+The queued audio data

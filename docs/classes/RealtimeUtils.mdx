@@ -1,0 +1,115 @@
+[**Ticos Realtime API v0.3.1**](../index.mdx)
+
+***
+
+# Class: RealtimeUtils
+
+Basic utilities for the Realtime API
+
+## Constructors
+
+### Constructor
+
+> **new RealtimeUtils**(): `RealtimeUtils`
+
+#### Returns
+
+`RealtimeUtils`
+
+## Methods
+
+### arrayBufferToBase64()
+
+> `static` **arrayBufferToBase64**(`arrayBuffer`): `string`
+
+Converts an ArrayBuffer, Int16Array or Float32Array to a base64 string
+
+#### Parameters
+
+##### arrayBuffer
+
+`ArrayBuffer` | `Int16Array`\<`ArrayBufferLike`\> | `Float32Array`\<`ArrayBufferLike`\>
+
+#### Returns
+
+`string`
+
+***
+
+### base64ToArrayBuffer()
+
+> `static` **base64ToArrayBuffer**(`base64`): `ArrayBuffer`
+
+Converts a base64 string to an ArrayBuffer
+
+#### Parameters
+
+##### base64
+
+`string`
+
+#### Returns
+
+`ArrayBuffer`
+
+***
+
+### floatTo16BitPCM()
+
+> `static` **floatTo16BitPCM**(`float32Array`): `ArrayBuffer`
+
+Converts Float32Array of amplitude data to ArrayBuffer in Int16Array format
+
+#### Parameters
+
+##### float32Array
+
+`Float32Array`
+
+#### Returns
+
+`ArrayBuffer`
+
+***
+
+### generateId()
+
+> `static` **generateId**(`prefix`, `length`): `string`
+
+Generates an id to send with events and messages
+
+#### Parameters
+
+##### prefix
+
+`string`
+
+##### length
+
+`number` = `21`
+
+#### Returns
+
+`string`
+
+***
+
+### mergeInt16Arrays()
+
+> `static` **mergeInt16Arrays**(`left`, `right`): `Int16Array`
+
+Merge two Int16Arrays from Int16Arrays or ArrayBuffers
+
+#### Parameters
+
+##### left
+
+`ArrayBuffer` | `Int16Array`\<`ArrayBufferLike`\>
+
+##### right
+
+`ArrayBuffer` | `Int16Array`\<`ArrayBufferLike`\>
+
+#### Returns
+
+`Int16Array`

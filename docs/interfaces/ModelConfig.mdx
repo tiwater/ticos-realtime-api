@@ -1,0 +1,71 @@
+[**Ticos Realtime API v0.3.1**](../index.mdx)
+
+***
+
+# Interface: ModelConfig
+
+Model configuration settings
+
+## Properties
+
+### instructions?
+
+> `optional` **instructions**: `string`
+
+System instructions
+
+***
+
+### max\_response\_output\_tokens?
+
+> `optional` **max\_response\_output\_tokens**: `number` \| `"inf"`
+
+Maximum tokens in responses
+
+***
+
+### modalities
+
+> **modalities**: `string`[]
+
+Supported modalities
+
+***
+
+### name
+
+> **name**: `string`
+
+Model name (e.g., 'stardust-2.5-turbo')
+
+***
+
+### provider
+
+> **provider**: `string`
+
+Model provider (e.g., 'tiwater')
+
+***
+
+### temperature?
+
+> `optional` **temperature**: `number`
+
+Temperature for response generation
+
+***
+
+### tool\_choice?
+
+> `optional` **tool\_choice**: \{ `name`: `string`; `type`: `"function"`; \} \| `"auto"` \| `"none"` \| `"required"`
+
+Tool choice strategy
+
+***
+
+### tools?
+
+> `optional` **tools**: [`ToolDefinition`](ToolDefinition.mdx)[]
+
+Available tools

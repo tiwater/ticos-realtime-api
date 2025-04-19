@@ -1,0 +1,22 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["./src/index.ts"],
+  "tsconfig": "./tsconfig.json",
+  "out": "./docs",
+  "name": "Ticos Realtime API",
+  "excludePrivate": true,
+  "excludeExternals": true,
+  "plugin": ["typedoc-plugin-markdown"],
+  "theme": "markdown",
+  "fileExtension": ".mdx",
+  "entryFileName": "index",
+  "includeVersion": true,
+  "mergeReadme": true,
+  "cleanOutputDir": true,
+  "hidePageTitle": false,
+  "hideBreadcrumbs": true,
+  "disableSources": true,
+  "sort": ["alphabetical"],
+  "entryPointStrategy": "expand",
+  "readme": "README.md"
+} 

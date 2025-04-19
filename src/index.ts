@@ -26,3 +26,9 @@ export { RealtimeEventHandler } from './core/event-handler';
 
 // Utilities
 export * from './utils';
+
+// Export types from event-handler
+export type { EventHandlerCallbackType } from './core/event-handler';
+
+// Export types from conversation
+export type { ItemContentDelta } from './core/conversation';

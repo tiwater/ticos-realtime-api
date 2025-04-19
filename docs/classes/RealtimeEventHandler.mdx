@@ -1,0 +1,247 @@
+[**Ticos Realtime API v0.3.1**](../index.mdx)
+
+***
+
+# Class: RealtimeEventHandler
+
+Base class for handling real-time events
+Provides methods for subscribing to events, handling them once, and waiting for specific events.
+Used by RealtimeAPI and RealtimeClient classes.
+
+## Extended by
+
+- [`RealtimeClient`](RealtimeClient.mdx)
+- [`RealtimeAPI`](RealtimeAPI.mdx)
+
+## Constructors
+
+### Constructor
+
+> **new RealtimeEventHandler**(): `RealtimeEventHandler`
+
+Creates a new RealtimeEventHandler instance
+
+#### Returns
+
+`RealtimeEventHandler`
+
+## Methods
+
+### clearEventHandlers()
+
+> **clearEventHandlers**(): `boolean`
+
+Clears all event handlers
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+***
+
+### dispatch()
+
+> **dispatch**\<`T`\>(`eventName`, `event`): `boolean`
+
+Executes all events in the order they were added, with .on() event handlers executing before .onNext() handlers
+Supports wildcard patterns for event names using '*'
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+Event name to dispatch
+
+##### event
+
+`T`
+
+Event data to pass to handlers
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+***
+
+### off()
+
+> **off**\<`T`\>(`eventName`, `callback?`): `boolean`
+
+Turns off event listening for specific events
+Calling without a callback will remove all listeners for the event
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+Event name to stop listening to
+
+##### callback?
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Optional specific callback to remove
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+***
+
+### offNext()
+
+> **offNext**\<`T`\>(`eventName`, `callback?`): `boolean`
+
+Turns off event listening for the next event of a specific type
+Calling without a callback will remove all listeners for the next event
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+Event name to stop listening to
+
+##### callback?
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Optional specific callback to remove
+
+#### Returns
+
+`boolean`
+
+Always returns true
+
+***
+
+### on()
+
+> **on**\<`T`\>(`eventName`, `callback`): [`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Listen to specific events
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+The name of the event to listen to (supports wildcards with '*')
+
+##### callback
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Code to execute on event
+
+#### Returns
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+The callback function
+
+***
+
+### onNext()
+
+> **onNext**\<`T`\>(`eventName`, `callback`): [`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Listen for the next event of a specified type
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+The name of the event to listen to (supports wildcards with '*')
+
+##### callback
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+Code to execute on event
+
+#### Returns
+
+[`EventHandlerCallbackType`](../type-aliases/EventHandlerCallbackType.mdx)\<`T`\>
+
+The callback function
+
+***
+
+### waitForNext()
+
+> **waitForNext**\<`T`\>(`eventName`, `timeout?`): `Promise`\<`null` \| `T`\>
+
+Waits for next event of a specific type and returns the payload
+
+#### Type Parameters
+
+##### T
+
+`T` *extends* [`Event`](../interfaces/Event.mdx) = [`Event`](../interfaces/Event.mdx)
+
+#### Parameters
+
+##### eventName
+
+`string`
+
+Event name to wait for
+
+##### timeout?
+
+Optional timeout in milliseconds
+
+`null` | `number`
+
+#### Returns
+
+`Promise`\<`null` \| `T`\>
+
+Promise that resolves with the event data or null if timed out
