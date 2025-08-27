@@ -1,18 +1,11 @@
 import { RealtimeEventHandler } from './event-handler';
 import { RealtimeAPI } from './realtime';
 import { RealtimeConversation } from './conversation';
-import type { ClientOptions, ToolDefinition, RealtimeConfig } from '../types/client';
+import type { ClientOptions, ToolDefinition, RealtimeConfig, ConfigWithMethods } from '../types/client';
 import type { ItemType, Content } from '../types/conversation';
 import { RealtimeUtils } from '../utils';
-import { Event, ItemEvent, RealtimeEvent } from '../types/events';
+import { Event, ItemEvent } from '../types/events';
 
-/**
- * Event interface for conversation updates.
- */
-interface ConversationUpdateEvent {
-  item: ItemType;
-  delta: any;
-}
 
 /**
  * High-level client for the Realtime API that manages conversations and tools.
@@ -21,8 +14,8 @@ interface ConversationUpdateEvent {
  */
 export class RealtimeClient extends RealtimeEventHandler {
   protected realtime: RealtimeAPI;
-  protected conversation: RealtimeConversation;
-  protected tools: Record<string, { definition: ToolDefinition; handler: Function }> = {};
+  public conversation: RealtimeConversation;
+  protected tools: Record<string, { definition: ToolDefinition; handler: (...args: unknown[]) => unknown | Promise<unknown> }> = {};
   protected inputAudioBuffer: Int16Array = new Int16Array(0);
   protected sessionCreated: boolean = false;
   protected config: RealtimeConfig = {
@@ -55,15 +48,22 @@ export class RealtimeClient extends RealtimeEventHandler {
       scripts: [],
     },
   };
-  private _configWithMethods: any;
+  private _configWithMethods: ConfigWithMethods | undefined = undefined;
+
+  /**
+   * Type guard to check if config has methods
+   */
+  private isConfigWithMethods(config: Partial<RealtimeConfig> | ConfigWithMethods): config is ConfigWithMethods {
+    return typeof (config as ConfigWithMethods).getSessionPayload === 'function';
+  }
 
   /**
    * Creates a new RealtimeClient instance.
    *
    * @param {ClientOptions} [settings] - Configuration settings for the client
-   * @param {RealtimeConfig | any} [config] - Optional configuration settings or config object with methods
+   * @param {Partial<RealtimeConfig> | ConfigWithMethods} [config] - Optional configuration settings or config object with methods
    */
-  constructor(settings?: ClientOptions, config?: Partial<RealtimeConfig> | any) {
+  constructor(settings?: ClientOptions, config?: Partial<RealtimeConfig> | ConfigWithMethods) {
     super();
     // Apply default settings if none provided
     const defaultSettings: ClientOptions = {
@@ -78,11 +78,13 @@ export class RealtimeClient extends RealtimeEventHandler {
     this.conversation = new RealtimeConversation();
 
     if (config) {
-      // Handle config object with getSessionPayload method (API compatibility)
-      if (typeof config.getSessionPayload === 'function') {
+      // Type guard to check if it's a config with methods
+      if (this.isConfigWithMethods(config)) {
         // It's a config object with methods, use its payload
         const sessionPayload = config.getSessionPayload().session;
-        this.config = sessionPayload || this.config;
+        if (sessionPayload) {
+          this.updateConfig(sessionPayload);
+        }
 
         // Store the config object with methods for later use
         this._configWithMethods = config;
@@ -242,7 +244,7 @@ export class RealtimeClient extends RealtimeEventHandler {
     this.realtime.on('server.tool.call', handleServerEvent);
 
     // Helper function to call tools directly (matching JS SDK pattern)
-    const callTool = async (tool: any) => {
+    const callTool = async (tool: { name: string; arguments: string; call_id: string }): Promise<void> => {
       try {
         const jsonArguments = JSON.parse(tool.arguments);
         const toolConfig = this.tools[tool.name];
@@ -295,7 +297,7 @@ export class RealtimeClient extends RealtimeEventHandler {
       }
     });
 
-    function handleClientEvent(event: Event) {
+    function handleClientEvent(event: Event): void {
       // Create the realtime.event wrapper
       const realtimeEvent = {
         time: new Date().toISOString(),
@@ -318,7 +320,7 @@ export class RealtimeClient extends RealtimeEventHandler {
       }
     }
 
-    function handleServerEvent(event: Event) {
+    function handleServerEvent(event: Event): void {
       const realtimeEvent = {
         time: new Date().toISOString(),
         source: 'server',
@@ -377,6 +379,23 @@ export class RealtimeClient extends RealtimeEventHandler {
   }
 
   /**
+   * Updates the session configuration with optional provider type.
+   * @param {Partial<RealtimeConfig>} config - Configuration to send
+   * @param {string} [provider] - Optional provider type ('stardust', 'openai', etc.)
+   */
+  public updateSessionConfig(config: Partial<RealtimeConfig>, provider?: string): void {
+    if (this.isConnected()) {
+      if (provider === 'stardust') {
+        // For Stardust, send the config directly with the expected format
+        this.realtime.send('session.update', config);
+      } else {
+        // For other providers or default behavior
+        this.realtime.send('session.update', { session: config });
+      }
+    }
+  }
+
+  /**
    * Returns the current conversation items.
    *
    * @returns {ItemType[]} The current conversation items
@@ -400,7 +419,7 @@ export class RealtimeClient extends RealtimeEventHandler {
    * }, (args) => eval(args.expression));
    * ```
    */
-  public registerTool(definition: ToolDefinition, handler: Function): void {
+  public registerTool(definition: ToolDefinition, handler: (...args: unknown[]) => unknown | Promise<unknown>): void {
     if (!definition.name) {
       throw new Error('Tool definition must have a name');
     }
@@ -441,7 +460,7 @@ export class RealtimeClient extends RealtimeEventHandler {
    * console.log(result); // 4
    * ```
    */
-  public async executeTool(name: string, args: Record<string, any>): Promise<any> {
+  public async executeTool(name: string, args: Record<string, unknown>): Promise<unknown> {
     if (!this.tools[name]) {
       throw new Error(`Tool "${name}" is not registered`);
     }
@@ -612,17 +631,18 @@ export class RealtimeClient extends RealtimeEventHandler {
    * Gets the turn detection type from config
    * @returns {string | null | object} Turn detection configuration (might be a string, object with type, or null)
    */
-  public getTurnDetectionType(): string | null | { type: string; [key: string]: any } {
+  public getTurnDetectionType(): string | null | { type: string;[key: string]: unknown } {
     // Check for config with methods first
-    if (
-      this._configWithMethods &&
-      typeof this._configWithMethods.getTurnDetectionType === 'function'
-    ) {
+    if (this._configWithMethods) {
       return this._configWithMethods.getTurnDetectionType();
     }
 
     // Otherwise use the config object
-    return this.config.hearing?.turn_detection || null;
+    const turnDetection = this.config.hearing?.turn_detection;
+    if (turnDetection && typeof turnDetection === 'object' && 'type' in turnDetection) {
+      return turnDetection;
+    }
+    return turnDetection as string | null;
   }
 
   /**
@@ -632,34 +652,34 @@ export class RealtimeClient extends RealtimeEventHandler {
    */
   public sendUserMessageContent(content: Content[]): boolean {
     if (content.length) {
-      const normalizedContent: Content[] = content.map((c: any) => {
+      const normalizedContent: Content[] = content.map((c) => {
         const contentCopy = { ...c };
 
         // Convert input_text to text
-        if (contentCopy.type === 'input_text' && 'input_text' in contentCopy) {
+        if (contentCopy.type === 'input_text') {
+          const inputTextContent = contentCopy as { type: 'input_text'; text: string };
           return {
-            type: 'text' as const,
-            text: contentCopy.input_text,
+            type: 'input_text' as const,
+            text: inputTextContent.text,
           };
         }
 
         // Convert input_audio to audio
-        if (contentCopy.type === 'input_audio' && 'input_audio' in contentCopy) {
-          const audioContent = contentCopy.input_audio;
+        if (contentCopy.type === 'input_audio') {
+          const inputAudioContent = contentCopy as { type: 'input_audio'; audio?: string; transcript?: string | null };
           return {
-            type: 'audio' as const,
-            audio:
-              typeof audioContent === 'string'
-                ? audioContent
-                : RealtimeUtils.arrayBufferToBase64(audioContent),
+            type: 'input_audio' as const,
+            audio: inputAudioContent.audio || '',
           };
         }
 
         // Handle base64 conversion for audio content if needed
-        if (contentCopy.type === 'audio' && 'audio' in contentCopy) {
-          if (contentCopy.audio instanceof ArrayBuffer || ArrayBuffer.isView(contentCopy.audio)) {
-            contentCopy.audio = RealtimeUtils.arrayBufferToBase64(contentCopy.audio);
-          }
+        if (contentCopy.type === 'audio') {
+          const audioContent = contentCopy as { type: 'audio'; audio: string };
+          return {
+            type: 'audio' as const,
+            audio: audioContent.audio,
+          };
         }
 
         return contentCopy;

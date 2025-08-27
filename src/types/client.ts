@@ -9,7 +9,7 @@ export interface ClientOptions {
   /** WebSocket endpoint URL */
   url: string;
   /** API key for authentication */
-  apiKey: string;
+  apiKey?: string;
   /** Whether to allow API key usage in browser (not recommended for production) */
   dangerouslyAllowAPIKeyInBrowser?: boolean;
   /** Enable debug logging */
@@ -39,35 +39,39 @@ export interface ToolDefinition {
   /** Description of what the tool does */
   description: string;
   /** Parameters schema */
-  parameters: {
-    type: "object";
-    properties: Record<string, ToolParameter>;
-  };
+  parameters?: {
+    type?: "object";
+    properties?: Record<string, ToolParameter | any>;
+    required?: string[];
+  } | any;
   /** Required parameter names */
-  required: string[];
+  required?: string[];
   /** Tool operation mode */
-  operation_mode: "client_mode" | "server_mode";
+  operation_mode?: "client_mode" | "server_mode";
   /** Tool execution type */
-  execution_type: "synchronous" | "asynchronous";
+  execution_type?: "synchronous" | "asynchronous";
   /** How to handle the tool's result */
-  result_handling: "process_in_llm" | "process_in_client" | "ignore_result";
+  result_handling?: "process_in_llm" | "process_in_client" | "ignore_result";
   /** Tool implementation code */
-  code: string;
+  code?: string;
   /** Programming language of the code */
-  language: "python" | "shell";
+  language?: "python" | "shell";
   /** Operating system platform */
-  platform: "linux" | "macos" | "windows";
+  platform?: "linux" | "macos" | "windows";
 }
 
-export interface BaseConfig {
+/**
+ * Configuration with methods for dynamic session management
+ */
+export interface ConfigWithMethods {
   /** Get session payload */
-  getSessionPayload(): { session: any };
+  getSessionPayload(): { session: Partial<RealtimeConfig> };
   /** Update configuration */
-  updateConfig(updates: any): void;
+  updateConfig(updates: Partial<RealtimeConfig>): void;
   /** Reset configuration to defaults */
   reset(): void;
   /** Get turn detection type */
-  getTurnDetectionType(): string | null;
+  getTurnDetectionType(): string | null | { type: string;[key: string]: unknown };
 }
 
 /**
@@ -111,9 +115,17 @@ export interface AudioConfig {
   /** Format of audio output */
   output_audio_format: string;
   /** Configuration for audio transcription */
-  input_audio_transcription: any | null;
+  input_audio_transcription: {
+    model?: string;
+    language?: string;
+  } | null;
   /** Settings for conversation turn detection */
-  turn_detection: any | null;
+  turn_detection: {
+    type: 'server_vad';
+    threshold?: number;
+    prefix_padding_ms?: number;
+    silence_duration_ms?: number;
+  } | null;
 }
 
 /**

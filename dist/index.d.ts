@@ -112,7 +112,7 @@ interface ClientOptions {
     /** WebSocket endpoint URL */
     url: string;
     /** API key for authentication */
-    apiKey: string;
+    apiKey?: string;
     /** Whether to allow API key usage in browser (not recommended for production) */
     dangerouslyAllowAPIKeyInBrowser?: boolean;
     /** Enable debug logging */
@@ -140,24 +140,43 @@ interface ToolDefinition {
     /** Description of what the tool does */
     description: string;
     /** Parameters schema */
-    parameters: {
-        type: "object";
-        properties: Record<string, ToolParameter>;
-    };
+    parameters?: {
+        type?: "object";
+        properties?: Record<string, ToolParameter | any>;
+        required?: string[];
+    } | any;
     /** Required parameter names */
-    required: string[];
+    required?: string[];
     /** Tool operation mode */
-    operation_mode: "client_mode" | "server_mode";
+    operation_mode?: "client_mode" | "server_mode";
     /** Tool execution type */
-    execution_type: "synchronous" | "asynchronous";
+    execution_type?: "synchronous" | "asynchronous";
     /** How to handle the tool's result */
-    result_handling: "process_in_llm" | "process_in_client" | "ignore_result";
+    result_handling?: "process_in_llm" | "process_in_client" | "ignore_result";
     /** Tool implementation code */
-    code: string;
+    code?: string;
     /** Programming language of the code */
-    language: "python" | "shell";
+    language?: "python" | "shell";
     /** Operating system platform */
-    platform: "linux" | "macos" | "windows";
+    platform?: "linux" | "macos" | "windows";
+}
+/**
+ * Configuration with methods for dynamic session management
+ */
+interface ConfigWithMethods {
+    /** Get session payload */
+    getSessionPayload(): {
+        session: Partial<RealtimeConfig>;
+    };
+    /** Update configuration */
+    updateConfig(updates: Partial<RealtimeConfig>): void;
+    /** Reset configuration to defaults */
+    reset(): void;
+    /** Get turn detection type */
+    getTurnDetectionType(): string | null | {
+        type: string;
+        [key: string]: unknown;
+    };
 }
 /**
  * Tool registration type combining definition and handler
@@ -201,9 +220,17 @@ interface AudioConfig {
     /** Format of audio output */
     output_audio_format: string;
     /** Configuration for audio transcription */
-    input_audio_transcription: any | null;
+    input_audio_transcription: {
+        model?: string;
+        language?: string;
+    } | null;
     /** Settings for conversation turn detection */
-    turn_detection: any | null;
+    turn_detection: {
+        type: 'server_vad';
+        threshold?: number;
+        prefix_padding_ms?: number;
+        silence_duration_ms?: number;
+    } | null;
 }
 /**
  * Vision configuration settings
@@ -384,7 +411,7 @@ interface RealtimeEvent extends Event {
 }
 
 /**
- * EventHandler callback type definition
+ * Type definition for event handler callbacks
  */
 type EventHandlerCallbackType<T extends Event = Event> = (event: T) => void;
 /**
@@ -604,12 +631,11 @@ declare class RealtimeAPI extends RealtimeEventHandler {
 }
 
 /**
- * Contains text and audio information about an item
- * Can also be used as a delta
+ * Interface for content deltas in conversation items
  */
 interface ItemContentDelta {
     text?: string;
-    audio?: Int16Array;
+    audio?: Int16Array | ArrayBuffer;
     arguments?: string;
     transcript?: string;
     output?: string;
@@ -690,22 +716,26 @@ declare class RealtimeConversation {
  */
 declare class RealtimeClient extends RealtimeEventHandler {
     protected realtime: RealtimeAPI;
-    protected conversation: RealtimeConversation;
+    conversation: RealtimeConversation;
     protected tools: Record<string, {
         definition: ToolDefinition;
-        handler: Function;
+        handler: (...args: unknown[]) => unknown | Promise<unknown>;
     }>;
     protected inputAudioBuffer: Int16Array;
     protected sessionCreated: boolean;
     protected config: RealtimeConfig;
     private _configWithMethods;
     /**
+     * Type guard to check if config has methods
+     */
+    private isConfigWithMethods;
+    /**
      * Creates a new RealtimeClient instance.
      *
      * @param {ClientOptions} [settings] - Configuration settings for the client
-     * @param {RealtimeConfig | any} [config] - Optional configuration settings or config object with methods
+     * @param {Partial<RealtimeConfig> | ConfigWithMethods} [config] - Optional configuration settings or config object with methods
      */
-    constructor(settings?: ClientOptions, config?: Partial<RealtimeConfig> | any);
+    constructor(settings?: ClientOptions, config?: Partial<RealtimeConfig> | ConfigWithMethods);
     /**
      * Listens for all events and forwards them to realtime.event with proper metadata
      * @private
@@ -745,6 +775,12 @@ declare class RealtimeClient extends RealtimeEventHandler {
      */
     protected updateSession(): void;
     /**
+     * Updates the session configuration with optional provider type.
+     * @param {Partial<RealtimeConfig>} config - Configuration to send
+     * @param {string} [provider] - Optional provider type ('stardust', 'openai', etc.)
+     */
+    updateSessionConfig(config: Partial<RealtimeConfig>, provider?: string): void;
+    /**
      * Returns the current conversation items.
      *
      * @returns {ItemType[]} The current conversation items
@@ -765,7 +801,7 @@ declare class RealtimeClient extends RealtimeEventHandler {
      * }, (args) => eval(args.expression));
      * ```
      */
-    registerTool(definition: ToolDefinition, handler: Function): void;
+    registerTool(definition: ToolDefinition, handler: (...args: unknown[]) => unknown | Promise<unknown>): void;
     /**
      * Removes a registered tool.
      *
@@ -791,7 +827,7 @@ declare class RealtimeClient extends RealtimeEventHandler {
      * console.log(result); // 4
      * ```
      */
-    executeTool(name: string, args: Record<string, any>): Promise<any>;
+    executeTool(name: string, args: Record<string, unknown>): Promise<unknown>;
     /**
      * Waits for the next item to be added to the conversation.
      *
@@ -863,7 +899,7 @@ declare class RealtimeClient extends RealtimeEventHandler {
      */
     getTurnDetectionType(): string | null | {
         type: string;
-        [key: string]: any;
+        [key: string]: unknown;
     };
     /**
      * Send user message content to the realtime service
@@ -927,4 +963,4 @@ declare class RealtimeUtils {
     static generateId(prefix: string, length?: number): string;
 }
 
-export { type AudioConfig, type AudioContent, type ClientOptions, type Content, type ContentBase, type ContentType, type ConversationEndEvent, type ConversationStartEvent, type ConversationState, type Event, type EventSource, type FormattedProperties, type ImageContent, type InputAudioContent, type InputTextContent, type ItemError, type ItemErrorEvent, type ItemEvent, type ItemStatus, type ItemType, type KnowledgeConfig, type ModelConfig, RealtimeAPI, RealtimeClient, type RealtimeConfig, RealtimeConversation, type RealtimeEvent, RealtimeEventHandler, RealtimeUtils, type SessionUpdateEvent, type TextContent, type TimestampedEvent, type ToolCallEvent, type ToolDefinition, type ToolRegisterEvent, type ToolRegistration, type ToolResponseEvent, type VisionConfig };
+export { type AudioConfig, type AudioContent, type ClientOptions, type ConfigWithMethods, type Content, type ContentBase, type ContentType, type ConversationEndEvent, type ConversationStartEvent, type ConversationState, type Event, type EventHandlerCallbackType, type EventSource, type FormattedProperties, type ImageContent, type InputAudioContent, type InputTextContent, type ItemContentDelta, type ItemError, type ItemErrorEvent, type ItemEvent, type ItemStatus, type ItemType, type KnowledgeConfig, type ModelConfig, RealtimeAPI, RealtimeClient, type RealtimeConfig, RealtimeConversation, type RealtimeEvent, RealtimeEventHandler, RealtimeUtils, type SessionUpdateEvent, type TextContent, type TimestampedEvent, type ToolCallEvent, type ToolDefinition, type ToolRegisterEvent, type ToolRegistration, type ToolResponseEvent, type VisionConfig };

@@ -4,6 +4,7 @@ export {
   ClientOptions,
   ToolDefinition,
   ToolRegistration,
+  ConfigWithMethods,
   // Config types
   RealtimeConfig,
   ModelConfig,
