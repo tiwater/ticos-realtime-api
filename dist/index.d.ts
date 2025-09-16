@@ -779,7 +779,7 @@ declare class RealtimeClient extends RealtimeEventHandler {
      * @param {Partial<RealtimeConfig>} config - Configuration to send
      * @param {string} [provider] - Optional provider type ('stardust', 'openai', etc.)
      */
-    updateSessionConfig(config: Partial<RealtimeConfig>, provider?: string): void;
+    updateSessionConfig(config: Partial<RealtimeConfig>): void;
     /**
      * Returns the current conversation items.
      *

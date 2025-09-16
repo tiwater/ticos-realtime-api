@@ -239,7 +239,7 @@ export class RealtimeConversation {
     },
 
     'response.audio_transcript.delta': (event) => {
-      const { item_id, content_index, delta } = event;
+      const { item_id, delta } = event;
       const item = this.itemLookup[item_id];
       if (!item) {
         console.warn(`response.audio_transcript.delta: Item "${item_id}" not found, skipping`);
@@ -264,7 +264,7 @@ export class RealtimeConversation {
     },
 
     'response.audio.delta': (event) => {
-      const { item_id, content_index, delta } = event;
+      const { item_id, delta } = event;
       const item = this.itemLookup[item_id];
       if (!item) {
         console.warn(`response.audio.delta: Item "${item_id}" not found, skipping`);

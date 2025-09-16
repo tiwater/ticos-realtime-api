@@ -139,7 +139,7 @@ export class RealtimeAPI extends RealtimeEventHandler {
 
       // Handle Node.js specific WebSocket options
       if (typeof process !== 'undefined' && !globalThis.document) {
-        (ws as any).on('upgrade', (response: any, socket: any, head: any) => {
+        (ws as any).on('upgrade', (response: any, _socket: any, _head: any) => {
           if (this.debug) {
             console.log('Upgrade headers:', response.headers);
           }

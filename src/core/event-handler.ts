@@ -6,11 +6,6 @@ import { Event } from '../types/events';
 export type EventHandlerCallbackType<T extends Event = Event> = (event: T) => void;
 
 /**
- * Utility function to create a promise that resolves after a specified time
- */
-const sleep = (t: number): Promise<void> => new Promise<void>((r) => setTimeout(() => r(), t));
-
-/**
  * Checks if an event name matches a pattern
  * Supports '*' as a wildcard at the end of the pattern
  *

@@ -1,6 +1,6 @@
 {
   "name": "@ticos/realtime-api",
-  "version": "0.3.2",
+  "version": "0.3.4-dev.1",
   "description": "Official SDK for Ticos Realtime API",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

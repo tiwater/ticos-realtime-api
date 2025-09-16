@@ -1,5 +1,5 @@
 import { ItemType } from './conversation';
-import { ClientOptions, ToolDefinition, RealtimeConfig } from './client';
+import { ToolDefinition, RealtimeConfig } from './client';
 
 /**
  * Base event interface
