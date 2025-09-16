@@ -8,7 +8,8 @@ export {
   // Config types
   RealtimeConfig,
   ModelConfig,
-  AudioConfig,
+  SpeechConfig,
+  HearingConfig,
   VisionConfig,
   KnowledgeConfig,
 } from './types/client';

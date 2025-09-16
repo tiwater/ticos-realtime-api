@@ -42,7 +42,6 @@ export class RealtimeClient extends RealtimeEventHandler {
     },
     hearing: {
       input_audio_format: 'pcm16',
-      input_audio_transcription: null,
       turn_detection: null,
     },
     vision: {
@@ -588,7 +587,10 @@ export class RealtimeClient extends RealtimeEventHandler {
    * @param {ToolDefinition} tool - Tool definition to add
    */
   public addTool(tool: ToolDefinition): void {
-    this.config.model.tools = [...(this.config.model?.tools || []), tool];
+    if (!this.config.model) {
+      this.config.model = { provider: 'tiwater', name: 'stardust-2.5-turbo', modalities: ['text'] };
+    }
+    this.config.model.tools = [...(this.config.model.tools || []), tool];
     this.updateSession();
   }
 
@@ -597,8 +599,11 @@ export class RealtimeClient extends RealtimeEventHandler {
    * @param {string} name - Name of the tool to remove
    */
   public removeTool(name: string): void {
+    if (!this.config.model) {
+      this.config.model = { provider: 'tiwater', name: 'stardust-2.5-turbo', modalities: ['text'] };
+    }
     this.config.model.tools =
-      this.config.model?.tools?.filter((tool: ToolDefinition) => tool.name !== name) || [];
+      this.config.model.tools?.filter((tool: ToolDefinition) => tool.name !== name) || [];
     this.updateSession();
   }
 
@@ -638,7 +643,6 @@ export class RealtimeClient extends RealtimeEventHandler {
       },
       hearing: {
         input_audio_format: 'pcm16',
-        input_audio_transcription: null,
         turn_detection: null,
       },
       vision: {
@@ -751,7 +755,7 @@ export class RealtimeClient extends RealtimeEventHandler {
    * @returns {boolean} Always returns true
    */
   public createResponse(): boolean {
-    if (this.config.hearing.turn_detection === null && this.inputAudioBuffer.byteLength > 0) {
+    if (this.config.hearing?.turn_detection === null && this.inputAudioBuffer.byteLength > 0) {
       this.realtime.send('input_audio_buffer.commit');
       this.conversation.queueInputAudio(this.inputAudioBuffer);
       this.inputAudioBuffer = new Int16Array(0);

@@ -197,6 +197,14 @@ interface ModelConfig {
     modalities: string[];
     /** System instructions */
     instructions?: string;
+    /** Include initial prompt configuration */
+    include_initial_prompt?: string;
+    /** Initial user prompt content */
+    initial_user_prompt?: string;
+    /** Initial assistant prompt content */
+    initial_assistant_prompt?: string;
+    /** History conversation length */
+    history_conversation_length?: number;
     /** Available tools */
     tools?: ToolDefinition[];
     /** Tool choice strategy */
@@ -206,30 +214,50 @@ interface ModelConfig {
     };
     /** Temperature for response generation */
     temperature?: number;
+    /** Top-p setting for nucleus sampling */
+    top_p?: number;
+    /** Top-k setting */
+    top_k?: number;
     /** Maximum tokens in responses */
     max_response_output_tokens?: number | 'inf';
 }
 /**
- * Audio configuration settings
+ * Speech configuration settings
  */
-interface AudioConfig {
+interface SpeechConfig {
     /** Voice ID for audio responses */
     voice: string;
-    /** Format of audio input */
-    input_audio_format: string;
     /** Format of audio output */
     output_audio_format: string;
-    /** Configuration for audio transcription */
-    input_audio_transcription: {
-        model?: string;
-        language?: string;
-    } | null;
+    /** Emotion for the voice */
+    emotion?: string;
+    /** Speed ratio (1-100) */
+    speed_ratio?: number;
+    /** Pitch ratio (1-100) */
+    pitch_ratio?: number;
+    /** Volume ratio (1-100) */
+    volume_ratio?: number;
+}
+/**
+ * Hearing configuration settings
+ */
+interface HearingConfig {
+    /** Format of audio input */
+    input_audio_format: string;
     /** Settings for conversation turn detection */
     turn_detection: {
         type: 'server_vad';
         threshold?: number;
         prefix_padding_ms?: number;
         silence_duration_ms?: number;
+    } | null;
+    /** Voiceprint configuration */
+    turn_voiceprint?: {
+        use: boolean;
+        type: 'group' | 'single';
+        group_id?: string;
+        profile_id?: string;
+        threshold?: number;
     } | null;
 }
 /**
@@ -310,12 +338,14 @@ interface FunctionResponse {
  * Complete configuration
  */
 interface RealtimeConfig {
+    /** Agent ID for server-side configuration */
+    agent_id?: string;
     /** Model configuration */
-    model: ModelConfig;
+    model?: ModelConfig;
     /** Speech configuration */
-    speech: Partial<AudioConfig>;
+    speech?: SpeechConfig;
     /** Hearing configuration */
-    hearing: Partial<AudioConfig>;
+    hearing?: HearingConfig;
     /** Vision configuration */
     vision?: VisionConfig;
     /** Knowledge configuration */
@@ -963,4 +993,4 @@ declare class RealtimeUtils {
     static generateId(prefix: string, length?: number): string;
 }
 
-export { type AudioConfig, type AudioContent, type ClientOptions, type ConfigWithMethods, type Content, type ContentBase, type ContentType, type ConversationEndEvent, type ConversationStartEvent, type ConversationState, type Event, type EventHandlerCallbackType, type EventSource, type FormattedProperties, type ImageContent, type InputAudioContent, type InputTextContent, type ItemContentDelta, type ItemError, type ItemErrorEvent, type ItemEvent, type ItemStatus, type ItemType, type KnowledgeConfig, type ModelConfig, RealtimeAPI, RealtimeClient, type RealtimeConfig, RealtimeConversation, type RealtimeEvent, RealtimeEventHandler, RealtimeUtils, type SessionUpdateEvent, type TextContent, type TimestampedEvent, type ToolCallEvent, type ToolDefinition, type ToolRegisterEvent, type ToolRegistration, type ToolResponseEvent, type VisionConfig };
+export { type AudioContent, type ClientOptions, type ConfigWithMethods, type Content, type ContentBase, type ContentType, type ConversationEndEvent, type ConversationStartEvent, type ConversationState, type Event, type EventHandlerCallbackType, type EventSource, type FormattedProperties, type HearingConfig, type ImageContent, type InputAudioContent, type InputTextContent, type ItemContentDelta, type ItemError, type ItemErrorEvent, type ItemEvent, type ItemStatus, type ItemType, type KnowledgeConfig, type ModelConfig, RealtimeAPI, RealtimeClient, type RealtimeConfig, RealtimeConversation, type RealtimeEvent, RealtimeEventHandler, RealtimeUtils, type SessionUpdateEvent, type SpeechConfig, type TextContent, type TimestampedEvent, type ToolCallEvent, type ToolDefinition, type ToolRegisterEvent, type ToolRegistration, type ToolResponseEvent, type VisionConfig };
