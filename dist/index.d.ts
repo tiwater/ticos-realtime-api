@@ -197,8 +197,24 @@ interface ModelConfig {
     modalities: string[];
     /** System instructions */
     instructions?: string;
+    /** Work mode for the model */
+    workmode?: 'realtime' | 'restful';
+    /** Emotion classifier model */
+    emotion_classifier?: string | null;
+    /** Memory instructions */
+    memory_instructions?: string;
+    /** Enable memory generation setting */
+    enable_memory_generation?: 'disabled' | 'server' | 'client';
+    /** Position for memory insertion */
+    memory_position?: string;
+    /** Instructions for memory generation */
+    memory_generation_instructions?: string;
+    /** Multi-LLM configuration */
+    multi_llm?: string;
+    /** API key for the model */
+    api_key?: string;
     /** Include initial prompt configuration */
-    include_initial_prompt?: string;
+    include_initial_prompt?: 'first' | 'last' | string | undefined;
     /** Initial user prompt content */
     initial_user_prompt?: string;
     /** Initial assistant prompt content */
@@ -244,6 +260,10 @@ interface SpeechConfig {
 interface HearingConfig {
     /** Format of audio input */
     input_audio_format: string;
+    /** Audio provider */
+    provider?: 'aliyun' | 'bytedance' | 'baidu' | 'qcloud' | 'jdcloud' | 'bytedance_streaming' | 'aliyun_streaming';
+    /** Silence detector configuration */
+    silence_detector?: any;
     /** Settings for conversation turn detection */
     turn_detection: {
         type: 'server_vad';
@@ -278,61 +298,18 @@ interface VisionConfig {
  */
 interface KnowledgeConfig {
     /** Available scripts for conversation */
-    scripts?: ScriptConfig[];
-}
-/**
- * Script configuration for predefined dialogues
- */
-interface ScriptConfig {
-    /** Unique identifier */
-    id: string;
-    /** Script name */
-    name: string;
-    /** Script description */
-    description: string;
-    /** Priority level */
-    priority?: number;
-    /** Categorization tags */
-    tags: string[];
-    /** Predefined dialogues */
-    dialogues: Dialogue[];
-}
-/**
- * Dialogue structure for scripted responses
- */
-interface Dialogue {
-    /** Unique identifier */
-    id: string;
-    /** Input prompts that trigger this dialogue */
-    prompts: string[];
-    /** Possible responses */
-    responses: DialogueResponse[];
-}
-/**
- * Response types in dialogues
- */
-type DialogueResponse = MessageResponse | FunctionResponse;
-/**
- * Message response in dialogues
- */
-interface MessageResponse {
-    /** Unique identifier */
-    id: string;
-    /** Response type */
-    type: 'message';
-    /** Message content */
-    message: string;
-}
-/**
- * Function response in dialogues
- */
-interface FunctionResponse {
-    /** Unique identifier */
-    id: string;
-    /** Response type */
-    type: 'function';
-    /** Function to execute */
-    function: string;
+    scripts?: Array<{
+        id: string;
+        name: string;
+        description: string;
+        priority: number;
+        tags: string[];
+        dialogues: any[];
+    }>;
+    /** Memory configuration */
+    memories?: {
+        enable: boolean;
+    };
 }
 /**
  * Complete configuration
