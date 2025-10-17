@@ -38,13 +38,16 @@ export class RealtimeUtils {
   static arrayBufferToBase64(
     arrayBuffer: ArrayBuffer | Int16Array | Float32Array
   ): string {
+    let buffer: ArrayBuffer;
     if (arrayBuffer instanceof Float32Array) {
-      arrayBuffer = this.floatTo16BitPCM(arrayBuffer);
+      buffer = this.floatTo16BitPCM(arrayBuffer);
     } else if (arrayBuffer instanceof Int16Array) {
-      arrayBuffer = arrayBuffer.buffer;
+      buffer = arrayBuffer.buffer as ArrayBuffer;
+    } else {
+      buffer = arrayBuffer;
     }
     let binary = '';
-    const bytes = new Uint8Array(arrayBuffer);
+    const bytes = new Uint8Array(buffer);
     const chunkSize = 0x8000; // 32KB chunk size
     for (let i = 0; i < bytes.length; i += chunkSize) {
       const chunk = bytes.subarray(i, i + chunkSize);
