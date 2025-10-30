@@ -282,6 +282,9 @@ export class RealtimeConversation {
           item.formatted.audio = new Int16Array(0);
         }
 
+        if(!delta) {
+          return { item, delta: null };
+        }
         const arrayBuffer = RealtimeUtils.base64ToArrayBuffer(delta);
         const appendValues = new Int16Array(arrayBuffer);
         item.formatted.audio = RealtimeUtils.mergeInt16Arrays(item.formatted.audio, appendValues);
