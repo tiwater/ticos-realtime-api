@@ -250,6 +250,7 @@ export class RealtimeClient extends RealtimeEventHandler {
       this.conversation.processEvent(event, this.inputAudioBuffer);
     });
     this.realtime.on('server.tool.call', handleServerEvent);
+    this.realtime.on('server.response.video.done', handleServerEvent);
     this.realtime.on('server.response.done', handleServerEvent);
 
     // Helper function to call tools directly (matching JS SDK pattern)
