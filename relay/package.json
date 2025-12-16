@@ -1,0 +1,11 @@
+{
+  "name": "@ticos/realtime-relay",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Deployable WebSocket relay for Ticos Realtime API (for browsers that can't set WS auth headers).",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
+

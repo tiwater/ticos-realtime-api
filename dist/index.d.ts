@@ -115,8 +115,11 @@ interface ClientOptions {
     apiKey?: string;
     /** Whether to allow API key usage in browser (not recommended for production) */
     dangerouslyAllowAPIKeyInBrowser?: boolean;
-    /** Enable debug logging */
     debug?: boolean;
+    /** Custom headers (Node.js only) */
+    headers?: Record<string, string>;
+    /** WebSocket sub-protocols */
+    protocols?: string[];
 }
 /**
  * Tool parameter definition
@@ -488,6 +491,7 @@ declare class RealtimeEventHandler {
     dispatch<T extends Event>(eventName: string, event: T): boolean;
 }
 
+type JsonObject = Record<string, unknown>;
 /**
  * Main client for interacting with the Realtime API.
  * Provides WebSocket-based communication with real-time capabilities.
@@ -516,6 +520,10 @@ declare class RealtimeAPI extends RealtimeEventHandler {
     private ws;
     /** Debug mode flag */
     private debug;
+    /** Custom headers (Node.js only) */
+    private headers;
+    /** WebSocket sub-protocols */
+    private protocols;
     /** Connection status */
     private connected;
     /**
@@ -583,7 +591,7 @@ declare class RealtimeAPI extends RealtimeEventHandler {
      * api.send('message', { text: 'Hello!' });
      * ```
      */
-    send(type: string, payload?: Record<string, any>): boolean;
+    send(type: string, payload?: JsonObject): boolean;
     /**
      * Registers a tool with the server.
      *
@@ -621,7 +629,7 @@ declare class RealtimeAPI extends RealtimeEventHandler {
      * api.sendToolResponse('tool-call-123', { result: 42 });
      * ```
      */
-    sendToolResponse(toolCallId: string, response: any): boolean;
+    sendToolResponse(toolCallId: string, response: unknown): boolean;
     /**
      * Sends a tool error to the server.
      *

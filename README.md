@@ -84,6 +84,10 @@ const { item } = await client.waitForNextCompletedItem();
 console.log('Completed response:', item);
 ```
 
+## Browser auth note (relay)
+
+If your deployment requires sending `Authorization` during the WebSocket handshake, browsers can’t set that header directly. This repo includes a small deployable relay service in `relay/` that you can run locally or deploy (e.g. Railway) and point your web app to.
+
 ## Documentation
 
 API documentation is automatically generated using TypeDoc. To generate the documentation, run:

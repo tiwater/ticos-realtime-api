@@ -12,8 +12,11 @@ export interface ClientOptions {
   apiKey?: string;
   /** Whether to allow API key usage in browser (not recommended for production) */
   dangerouslyAllowAPIKeyInBrowser?: boolean;
-  /** Enable debug logging */
   debug?: boolean;
+  /** Custom headers (Node.js only) */
+  headers?: Record<string, string>;
+  /** WebSocket sub-protocols */
+  protocols?: string[];
 }
 
 /**

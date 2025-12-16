@@ -1,11 +1,25 @@
 import { RealtimeEventHandler } from './event-handler';
-import type { WebSocket as WSType } from 'ws';
+import type { IncomingMessage, ClientRequest } from 'node:http';
+import type { WebSocket as WSType, RawData } from 'ws';
 import type { ClientOptions } from '../types/client';
 import { RealtimeUtils } from '../utils';
 import type { Event as RealtimeEvent } from '../types/events';
 
 /** Type alias for WebSocket instances that works in both Node.js and browser environments */
 type WebSocketType = WSType | WebSocket;
+
+type JsonObject = Record<string, unknown>;
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function rawDataToString(data: RawData): string {
+  if (typeof data === 'string') return data;
+  if (data instanceof ArrayBuffer) return Buffer.from(data).toString('utf8');
+  if (Array.isArray(data)) return Buffer.concat(data).toString('utf8');
+  return data.toString('utf8');
+}
 
 /**
  * Main client for interacting with the Realtime API.
@@ -35,6 +49,10 @@ export class RealtimeAPI extends RealtimeEventHandler {
   private ws: WebSocketType | null = null;
   /** Debug mode flag */
   private debug: boolean = false;
+  /** Custom headers (Node.js only) */
+  private headers: Record<string, string> = {};
+  /** WebSocket sub-protocols */
+  private protocols: string[] = [];
   /** Connection status */
   private connected: boolean = false;
 
@@ -49,6 +67,8 @@ export class RealtimeAPI extends RealtimeEventHandler {
     this.url = settings.url || this.defaultUrl;
     this.apiKey = settings.apiKey || null;
     this.debug = !!settings.debug;
+    this.headers = settings.headers || {};
+    this.protocols = settings.protocols || [];
 
     if (globalThis.document && this.apiKey) {
       if (!settings.dangerouslyAllowAPIKeyInBrowser) {
@@ -71,38 +91,96 @@ export class RealtimeAPI extends RealtimeEventHandler {
    * console.log('Connected to Realtime API');
    * ```
    */
-  public connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (this.connected) {
-        resolve();
-        return;
-      }
+  public async connect(): Promise<void> {
+    if (this.connected) return;
 
-      // Create URL with API key if provided
-      const url = new URL(this.url);
-      if (this.apiKey) {
-        url.searchParams.set('api_key', this.apiKey);
-      }
+    const url = new URL(this.url);
+    if (this.apiKey) url.searchParams.set('api_key', this.apiKey);
+    const hasAuthInUrl = url.searchParams.has('api_key');
+    const hasAuthInProtocols = this.protocols.some((p) => p.startsWith('api-key.'));
+    const hasAuthInHeaders = Object.keys(this.headers).length > 0;
+    if (!this.apiKey && !hasAuthInUrl && !hasAuthInProtocols && !hasAuthInHeaders) {
+      throw new Error('Missing API key (set apiKey, api_key query param, or headers in Node.js).');
+    }
 
-      // Create WebSocket connection
-      const ws = new WebSocket(url.toString(), [
-        'realtime',
-        `api-key.${this.apiKey}`,
-        'realtime-v1',
-      ]);
+    const defaultProtocols = [
+      'realtime',
+      ...(this.apiKey ? [`api-key.${this.apiKey}`] : []),
+      'realtime-v1',
+    ];
+    const protocols = [...defaultProtocols, ...this.protocols];
 
-      ws.addEventListener('message', (event) => {
+    const isNode = typeof process !== 'undefined' && !globalThis.document;
+
+    if (isNode) {
+      const { WebSocket: NodeWebSocket } = await import('ws');
+      const options = {
+        ...(Object.keys(this.headers).length > 0 ? { headers: this.headers } : {}),
+        handshakeTimeout: 10_000,
+      };
+      const ws = new NodeWebSocket(url.toString(), protocols, options);
+
+      await new Promise<void>((resolve, reject) => {
+        ws.on('message', (data: RawData) => {
+          try {
+            const parsed: unknown = JSON.parse(rawDataToString(data));
+            if (this.debug) {
+              const sanitizedData: JsonObject = isJsonObject(parsed) ? { ...parsed } : { value: parsed };
+              if ('api_key' in sanitizedData) sanitizedData['api_key'] = '[REDACTED]';
+              console.log('Received:', sanitizedData);
+            }
+            if (isJsonObject(parsed) && typeof parsed.type === 'string') {
+              this.receive(parsed.type, parsed);
+            }
+          } catch (e) {
+            console.error('Error parsing message:', e);
+          }
+        });
+
+        ws.on('open', () => {
+          this.connected = true;
+          this.ws = ws;
+          this.dispatch('client.connected', { type: 'client.connected' });
+          resolve();
+        });
+
+        ws.on('error', (error: Error) => {
+          this.dispatch('client.error', { type: 'client.error', error });
+          reject(error);
+        });
+
+        ws.on('close', () => {
+          this.connected = false;
+          this.ws = null;
+          this.dispatch('client.disconnected', { type: 'client.disconnected' });
+        });
+
+        ws.on('upgrade', (response: IncomingMessage) => {
+          if (this.debug) console.log('Upgrade headers:', response.headers);
+        });
+
+        ws.on('unexpected-response', (_request: ClientRequest, response: IncomingMessage) => {
+          if (this.debug) console.log('Unexpected response:', response.statusCode);
+          reject(new Error(`Unexpected response: ${response.statusCode}`));
+        });
+      });
+
+      return;
+    }
+
+    const ws = new WebSocket(url.toString(), protocols);
+
+    await new Promise<void>((resolve, reject) => {
+      ws.addEventListener('message', (event: MessageEvent) => {
         try {
-          const data = JSON.parse(event.data as string);
-          // Only log if debug mode is enabled
+          const parsed: unknown = JSON.parse(event.data as string);
           if (this.debug) {
-            // Don't log sensitive data in debug messages
-            const sanitizedData = { ...data };
-            if (sanitizedData.api_key) sanitizedData.api_key = '[REDACTED]';
+            const sanitizedData: JsonObject = isJsonObject(parsed) ? { ...parsed } : { value: parsed };
+            if ('api_key' in sanitizedData) sanitizedData['api_key'] = '[REDACTED]';
             console.log('Received:', sanitizedData);
           }
-          if (data.type) {
-            this.receive(data.type, data);
+          if (isJsonObject(parsed) && typeof parsed.type === 'string') {
+            this.receive(parsed.type, parsed);
           }
         } catch (e) {
           console.error('Error parsing message:', e);
@@ -112,46 +190,20 @@ export class RealtimeAPI extends RealtimeEventHandler {
       ws.addEventListener('open', () => {
         this.connected = true;
         this.ws = ws;
-        // Only dispatch prefixed events to match JS SDK
-        this.dispatch('client.connected', {
-          type: 'client.connected',
-        });
+        this.dispatch('client.connected', { type: 'client.connected' });
         resolve();
       });
 
-      ws.addEventListener('error', (error) => {
-        // Only dispatch prefixed events to match JS SDK
-        this.dispatch('client.error', {
-          type: 'client.error',
-          error,
-        });
+      ws.addEventListener('error', (error: Event) => {
+        this.dispatch('client.error', { type: 'client.error', error });
         reject(error);
       });
 
       ws.addEventListener('close', () => {
         this.connected = false;
         this.ws = null;
-        // Only dispatch prefixed events to match JS SDK
-        this.dispatch('client.disconnected', {
-          type: 'client.disconnected',
-        });
+        this.dispatch('client.disconnected', { type: 'client.disconnected' });
       });
-
-      // Handle Node.js specific WebSocket options
-      if (typeof process !== 'undefined' && !globalThis.document) {
-        (ws as any).on('upgrade', (response: any, _socket: any, _head: any) => {
-          if (this.debug) {
-            console.log('Upgrade headers:', response.headers);
-          }
-        });
-
-        (ws as any).on('unexpected-response', (request: any, response: any) => {
-          if (this.debug) {
-            console.log('Unexpected response:', response.statusCode);
-          }
-          reject(new Error(`Unexpected response: ${response.statusCode}`));
-        });
-      }
     });
   }
 
@@ -196,7 +248,7 @@ export class RealtimeAPI extends RealtimeEventHandler {
    * @returns {boolean} Always returns true
    * @private
    */
-  private receive(eventName: string, event: Record<string, any>): boolean {
+  private receive(eventName: string, event: JsonObject): boolean {
     if (this.debug) {
       console.log(`Received: ${eventName}`, event);
     }
@@ -232,7 +284,7 @@ export class RealtimeAPI extends RealtimeEventHandler {
    * api.send('message', { text: 'Hello!' });
    * ```
    */
-  public send(type: string, payload: Record<string, any> = {}): boolean {
+  public send(type: string, payload: JsonObject = {}): boolean {
     if (!this.isConnected()) {
       // Instead of queuing, just fail if not connected
       if (this.debug) {
@@ -245,7 +297,7 @@ export class RealtimeAPI extends RealtimeEventHandler {
       const event_id = RealtimeUtils.generateId('evt_');
 
       // Create the event to send to the server
-      const event = {
+      const event: JsonObject = {
         event_id,
         type,
         ...payload,
@@ -253,18 +305,18 @@ export class RealtimeAPI extends RealtimeEventHandler {
 
       if (this.debug) {
         // Sanitize sensitive data for logging
-        const sanitizedEvent = { ...event };
-        // Use a type assertion to handle potential dynamic properties
-        const sanitized = sanitizedEvent as Record<string, any>;
-
-        if (sanitized.api_key) sanitized.api_key = '[REDACTED]';
-        if (type === 'session.update' && sanitized.session?.apiKey) {
-          sanitized.session.apiKey = '[REDACTED]';
+        const sanitizedEvent: JsonObject = { ...event };
+        if ('api_key' in sanitizedEvent) sanitizedEvent['api_key'] = '[REDACTED]';
+        const session = sanitizedEvent['session'];
+        if (type === 'session.update' && isJsonObject(session) && typeof session['apiKey'] === 'string') {
+          session['apiKey'] = '[REDACTED]';
         }
         console.log('Sending:', sanitizedEvent);
       }
 
-      this.ws!.send(JSON.stringify(event));
+      const ws = this.ws;
+      if (!ws) return false;
+      ws.send(JSON.stringify(event));
 
       // Dispatch with client. prefix only - no client.* to avoid duplicates
       this.dispatch(`client.${type}`, {
@@ -323,7 +375,7 @@ export class RealtimeAPI extends RealtimeEventHandler {
    * api.sendToolResponse('tool-call-123', { result: 42 });
    * ```
    */
-  public sendToolResponse(toolCallId: string, response: any): boolean {
+  public sendToolResponse(toolCallId: string, response: unknown): boolean {
     return this.send('tool.response', {
       tool_call_id: toolCallId,
       response,
