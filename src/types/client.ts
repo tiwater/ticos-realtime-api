@@ -29,12 +29,23 @@ export interface ToolParameter {
   description: string;
 }
 
+export type JsonSchema = {
+  type?: string;
+  description?: string;
+  properties?: Record<string, JsonSchema>;
+  required?: string[];
+  items?: JsonSchema;
+  enum?: unknown[];
+  additionalProperties?: boolean | JsonSchema;
+  [key: string]: unknown;
+};
+
 /**
  * Tool definition for registering tools with the client
  */
 export interface ToolDefinition {
   /** Tool type, always "function" */
-  type: "function";
+  type: 'function';
   /** Optional unique identifier */
   id?: string;
   /** Name of the tool */
@@ -42,25 +53,21 @@ export interface ToolDefinition {
   /** Description of what the tool does */
   description: string;
   /** Parameters schema */
-  parameters?: {
-    type?: "object";
-    properties?: Record<string, ToolParameter | any>;
-    required?: string[];
-  } | any;
+  parameters?: JsonSchema;
   /** Required parameter names */
   required?: string[];
   /** Tool operation mode */
-  operation_mode?: "client_mode" | "server_mode";
+  operation_mode?: 'client_mode' | 'server_mode';
   /** Tool execution type */
-  execution_type?: "synchronous" | "asynchronous";
+  execution_type?: 'synchronous' | 'asynchronous';
   /** How to handle the tool's result */
-  result_handling?: "process_in_llm" | "process_in_client" | "ignore_result";
+  result_handling?: 'process_in_llm' | 'process_in_client' | 'ignore_result';
   /** Tool implementation code */
   code?: string;
   /** Programming language of the code */
-  language?: "python" | "shell";
+  language?: 'python' | 'shell';
   /** Operating system platform */
-  platform?: "linux" | "macos" | "windows";
+  platform?: 'linux' | 'macos' | 'windows';
 }
 
 /**
@@ -82,7 +89,7 @@ export interface ConfigWithMethods {
  */
 export interface ToolRegistration {
   definition: ToolDefinition;
-  handler: Function;
+  handler: (...args: unknown[]) => unknown;
 }
 
 /**
@@ -114,7 +121,7 @@ export interface ModelConfig {
   /** API key for the model */
   api_key?: string;
   /** Include initial prompt configuration */
-  include_initial_prompt?: 'first' | 'last' | string | undefined;
+  include_initial_prompt?: 'first' | 'last';
   /** Initial user prompt content */
   initial_user_prompt?: string;
   /** Initial assistant prompt content */
@@ -162,7 +169,7 @@ export interface HearingConfig {
   /** Audio provider */
   provider?: 'aliyun' | 'bytedance' | 'baidu' | 'qcloud' | 'jdcloud' | 'bytedance_streaming' | 'aliyun_streaming';
   /** Silence detector configuration */
-  silence_detector?: any;
+  silence_detector?: Record<string, unknown>;
   /** Settings for conversation turn detection */
   turn_detection: {
     type: 'server_vad';
@@ -205,7 +212,7 @@ export interface KnowledgeConfig {
     description: string;
     priority: number;
     tags: string[];
-    dialogues: any[];
+    dialogues: Dialogue[];
   }>;
   /** Memory configuration */
   memories?: {

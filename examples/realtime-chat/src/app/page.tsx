@@ -4,12 +4,9 @@ import ChatContainer from '@/components/chat-container';
 import { EventLog } from '@/components/event-log';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { Button } from '@/components/ui/button';
-import { useRealtime } from '@/contexts/realtime-context';
 import { Github } from 'lucide-react';
 
 export default function Home() {
-  const { isConnected, isLoading } = useRealtime();
-
   return (
     <main className="flex h-screen flex-col">
       <div className="w-full mx-auto flex flex-col gap-4 h-screen p-4">

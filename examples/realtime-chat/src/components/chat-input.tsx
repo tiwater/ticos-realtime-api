@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import React, { useState, useRef, useEffect, KeyboardEvent, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Mic, Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -48,18 +48,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
       adjustTextareaHeight();
     }
   }, []);
-
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      if (!useRealTimeRecording) {
-        stopLocalRecording();
-      }
-      if (recordingTimeoutRef.current) {
-        clearInterval(recordingTimeoutRef.current);
-      }
-    };
-  }, [useRealTimeRecording]);
 
   // Adjust textarea height based on content
   const adjustTextareaHeight = () => {
@@ -125,31 +113,12 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
-  // Stop local recording
-  const stopLocalRecording = () => {
-    if (mediaRecorderRef.current && isLocalRecording) {
-      mediaRecorderRef.current.stop();
-      setIsLocalRecording(false);
-
-      // Clear the recording timer
-      if (recordingTimeoutRef.current) {
-        clearInterval(recordingTimeoutRef.current);
-        recordingTimeoutRef.current = null;
-      }
-
-      // Process the audio
-      processLocalAudio();
-    }
-  };
-
   // Process local audio recording
-  const processLocalAudio = async () => {
+  const processLocalAudio = useCallback(async () => {
     if (audioChunksRef.current.length === 0) return;
 
     setIsProcessing(true);
     try {
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-
       // Here you would normally send the audio to a speech-to-text service
       // For demo purposes, we'll just simulate a response after a delay
       setTimeout(() => {
@@ -170,7 +139,36 @@ const ChatInput: React.FC<ChatInputProps> = ({
       setIsProcessing(false);
       setRecordingTime(0);
     }
-  };
+  }, [onSendMessage]);
+
+  // Stop local recording
+  const stopLocalRecording = useCallback(() => {
+    if (mediaRecorderRef.current && isLocalRecording) {
+      mediaRecorderRef.current.stop();
+      setIsLocalRecording(false);
+
+      // Clear the recording timer
+      if (recordingTimeoutRef.current) {
+        clearInterval(recordingTimeoutRef.current);
+        recordingTimeoutRef.current = null;
+      }
+
+      // Process the audio
+      processLocalAudio();
+    }
+  }, [isLocalRecording, processLocalAudio]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (!useRealTimeRecording) {
+        stopLocalRecording();
+      }
+      if (recordingTimeoutRef.current) {
+        clearInterval(recordingTimeoutRef.current);
+      }
+    };
+  }, [stopLocalRecording, useRealTimeRecording]);
 
   // Handle recording button press
   const handleRecordPress = async () => {

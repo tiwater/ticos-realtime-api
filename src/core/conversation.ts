@@ -1,6 +1,97 @@
 import type { ItemType, Content } from '../types/conversation';
 import { RealtimeUtils } from '../utils';
 
+type JsonObject = Record<string, unknown>;
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+type BaseEvent = {
+  event_id: string;
+  type: string;
+};
+
+type ConversationItemCreatedEvent = BaseEvent & {
+  type: 'conversation.item.created';
+  item: ItemType;
+};
+
+type InputAudioTranscriptionCompletedEvent = BaseEvent & {
+  type: 'conversation.item.input_audio_transcription.completed';
+  item_id: string;
+  content_index: number;
+  transcript: string;
+};
+
+type ResponseAudioTranscriptDeltaEvent = BaseEvent & {
+  type: 'response.audio_transcript.delta';
+  item_id: string;
+  delta: string;
+};
+
+type ResponseAudioDeltaEvent = BaseEvent & {
+  type: 'response.audio.delta';
+  item_id: string;
+  delta?: string | null;
+};
+
+type ResponseTextDeltaEvent = BaseEvent & {
+  type: 'response.text.delta';
+  item_id: string;
+  content_index: number;
+  delta: string;
+};
+
+type InputAudioBufferSpeechStartedEvent = BaseEvent & {
+  type: 'input_audio_buffer.speech_started';
+  item_id: string;
+  audio_start_ms: number;
+};
+
+type InputAudioBufferSpeechStoppedEvent = BaseEvent & {
+  type: 'input_audio_buffer.speech_stopped';
+  item_id: string;
+  audio_end_ms: number;
+};
+
+type ResponseFunctionCallArgumentsDeltaEvent = BaseEvent & {
+  type: 'response.function_call_arguments.delta';
+  item_id: string;
+  delta: string;
+};
+
+type ResponseOutputItemDoneEvent = BaseEvent & {
+  type: 'response.output_item.done';
+  item: Pick<ItemType, 'id' | 'status'> & JsonObject;
+};
+
+type KnownEvent =
+  | ConversationItemCreatedEvent
+  | InputAudioTranscriptionCompletedEvent
+  | ResponseAudioTranscriptDeltaEvent
+  | ResponseAudioDeltaEvent
+  | ResponseTextDeltaEvent
+  | InputAudioBufferSpeechStartedEvent
+  | InputAudioBufferSpeechStoppedEvent
+  | ResponseFunctionCallArgumentsDeltaEvent
+  | ResponseOutputItemDoneEvent;
+
+type ItemDeltaResult = { item: ItemType | null; delta: ItemContentDelta | null };
+type EventProcessor<E extends KnownEvent = KnownEvent> = (event: E, ...args: unknown[]) => ItemDeltaResult;
+type EventProcessorMap = { [K in KnownEvent['type']]: EventProcessor<Extract<KnownEvent, { type: K }>> };
+
+type QueuedSpeechItem = {
+  audio_start_ms: number;
+  audio_end_ms?: number;
+  audio?: Int16Array;
+};
+
+type QueuedTranscriptItem = {
+  transcript: string;
+  content_index: number;
+};
+
 /**
  * Interface for content deltas in conversation items
  */
@@ -26,14 +117,10 @@ export class RealtimeConversation {
   private itemLookup: Record<string, ItemType> = {};
   /** Array of conversation items */
   private items: ItemType[] = [];
-  /** Lookup for responses by ID */
-  private responseLookup: Record<string, any> = {};
-  /** Array of responses */
-  private responses: any[] = [];
   /** Queued speech items by ID */
-  private queuedSpeechItems: Record<string, any> = {};
+  private queuedSpeechItems: Record<string, QueuedSpeechItem> = {};
   /** Queued transcript items by ID */
-  private queuedTranscriptItems: Record<string, any> = {};
+  private queuedTranscriptItems: Record<string, QueuedTranscriptItem> = {};
   /** Queued audio data for processing */
   private queuedInputAudio: Int16Array | null = null;
 
@@ -52,8 +139,6 @@ export class RealtimeConversation {
   public clear(): boolean {
     this.itemLookup = {};
     this.items = [];
-    this.responseLookup = {};
-    this.responses = [];
     this.queuedSpeechItems = {};
     this.queuedTranscriptItems = {};
     this.queuedInputAudio = null;
@@ -73,45 +158,54 @@ export class RealtimeConversation {
 
   /**
    * Process an event from the WebSocket server and compose items
-   * @param {any} event - The event to process
-   * @param {...any} args - Additional arguments
+   * @param {unknown} event - The event to process
+   * @param {...unknown} args - Additional arguments
    * @returns {{ item: ItemType | null, delta: ItemContentDelta | null }} Processed item and delta
    */
-  public processEvent(
-    event: any,
-    ...args: any[]
-  ): { item: ItemType | null; delta: ItemContentDelta | null } {
+  public processEvent(event: unknown, ...args: unknown[]): ItemDeltaResult {
     // Support alternative event formats
-    if (!event.event_id && !event.type) {
+    if (
+      !isJsonObject(event) ||
+      (!('event_id' in event) && !('type' in event))
+    ) {
       // Event might be passed as type + payload separately
-      if (typeof args[0] === 'string' && typeof args[1] === 'object') {
+      if (typeof args[0] === 'string' && isJsonObject(args[1])) {
         const eventType = args[0];
-        const eventPayload = args[1];
-        eventPayload.type = eventType;
-
-        // Generate event_id if needed
-        eventPayload.event_id = eventPayload.event_id || RealtimeUtils.generateId('evt_');
+        const eventPayload: JsonObject = { ...args[1], type: eventType };
+        const existingEventId = eventPayload['event_id'];
+        eventPayload['event_id'] =
+          typeof existingEventId === 'string' && existingEventId.length > 0
+            ? existingEventId
+            : RealtimeUtils.generateId('evt_');
 
         // Process using the normalized event
         return this.processEvent(eventPayload);
       }
     }
 
-    if (!event.event_id) {
+    if (!isJsonObject(event)) {
+      console.error(event);
+      throw new Error('Invalid event payload (expected object)');
+    }
+
+    const eventId = event['event_id'];
+    if (typeof eventId !== 'string' || eventId.length === 0) {
       console.error(event);
       throw new Error('Missing "event_id" on event');
     }
-    if (!event.type) {
+
+    const eventType = event['type'];
+    if (typeof eventType !== 'string' || eventType.length === 0) {
       console.error(event);
       throw new Error('Missing "type" on event');
     }
 
-    const eventProcessor = this.EventProcessors[event.type];
+    const eventProcessor = (this.EventProcessors as Record<string, EventProcessor | undefined>)[eventType];
     if (!eventProcessor) {
-      throw new Error(`Missing conversation event processor for "${event.type}"`);
+      throw new Error(`Missing conversation event processor for "${eventType}"`);
     }
 
-    return eventProcessor.call(this, event, ...args);
+    return eventProcessor(event as KnownEvent, ...args);
   }
 
   /**
@@ -136,14 +230,11 @@ export class RealtimeConversation {
    * Event processors for different event types
    * @private
    */
-  private EventProcessors: Record<
-    string,
-    (event: any, ...args: any[]) => { item: ItemType | null; delta: ItemContentDelta | null }
-  > = {
+  private EventProcessors: EventProcessorMap = {
     'conversation.item.created': (event) => {
       const { item } = event;
       // deep copy values
-      const newItem = JSON.parse(JSON.stringify(item));
+      const newItem = JSON.parse(JSON.stringify(item)) as ItemType;
       if (!this.itemLookup[newItem.id]) {
         this.itemLookup[newItem.id] = newItem;
         this.items.push(newItem);
@@ -158,9 +249,19 @@ export class RealtimeConversation {
       newItem.formatted.text = '';
       newItem.formatted.transcript = '';
 
+      const queuedTranscript = this.queuedTranscriptItems[newItem.id];
+      if (queuedTranscript) {
+        const contentItem = newItem.content[queuedTranscript.content_index];
+        if (contentItem && (contentItem.type === 'audio' || contentItem.type === 'input_audio')) {
+          contentItem.transcript = queuedTranscript.transcript;
+        }
+        newItem.formatted.transcript = queuedTranscript.transcript;
+        delete this.queuedTranscriptItems[newItem.id];
+      }
+
       // If we have a speech item, can populate audio
       if (this.queuedSpeechItems[newItem.id]) {
-        newItem.formatted.audio = this.queuedSpeechItems[newItem.id].audio;
+        newItem.formatted.audio = this.queuedSpeechItems[newItem.id].audio ?? new Int16Array(0);
         delete this.queuedSpeechItems[newItem.id]; // free up some memory
       }
 
@@ -189,14 +290,14 @@ export class RealtimeConversation {
       } else if (newItem.type === 'function_call') {
         newItem.formatted.tool = {
           type: 'function',
-          name: newItem.name,
-          call_id: newItem.call_id,
+          name: newItem.name ?? '',
+          call_id: newItem.call_id ?? '',
           arguments: '',
         };
         newItem.status = 'in_progress';
       } else if (newItem.type === 'function_call_output') {
         newItem.status = 'completed';
-        newItem.formatted.output = newItem.output;
+        newItem.formatted.output = newItem.output ?? '';
       }
 
       return { item: newItem, delta: null };
@@ -214,17 +315,14 @@ export class RealtimeConversation {
         // This happens specifically when audio is empty
         this.queuedTranscriptItems[item_id] = {
           transcript: formattedTranscript,
+          content_index,
         };
         return { item: null, delta: null };
       } else {
         try {
-          if (content_index !== undefined && item.content[content_index]) {
-            // Only set transcript on audio content types
-            const contentItem = item.content[content_index];
-            if (contentItem.type === 'audio' || contentItem.type === 'input_audio') {
-              // Type assertion to inform TypeScript this is an audio content type
-              (contentItem as any).transcript = transcript;
-            }
+          const contentItem = item.content[content_index];
+          if (contentItem && (contentItem.type === 'audio' || contentItem.type === 'input_audio')) {
+            contentItem.transcript = transcript;
           }
           if (!item.formatted) {
             item.formatted = {};
@@ -351,15 +449,9 @@ export class RealtimeConversation {
       if (inputAudioBuffer && inputAudioBuffer instanceof Int16Array) {
         const startIndex = Math.floor((speech.audio_start_ms * this.defaultFrequency) / 1000);
         const endIndex = Math.floor((speech.audio_end_ms * this.defaultFrequency) / 1000);
-        // Ensure indices are valid before slicing
-        if (startIndex >= 0 && endIndex >= startIndex && endIndex <= inputAudioBuffer.length) {
-          speech.audio = inputAudioBuffer.slice(startIndex, endIndex);
-        } else {
-          console.warn(
-            `Invalid audio slice indices: start=${startIndex}, end=${endIndex}, length=${inputAudioBuffer.length}`
-          );
-          speech.audio = new Int16Array(0);
-        }
+        const clampedStart = Math.max(0, Math.min(startIndex, inputAudioBuffer.length));
+        const clampedEnd = Math.max(clampedStart, Math.min(endIndex, inputAudioBuffer.length));
+        speech.audio = inputAudioBuffer.slice(clampedStart, clampedEnd);
       }
       return { item: null, delta: null };
     },

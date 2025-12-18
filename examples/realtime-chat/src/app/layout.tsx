@@ -5,6 +5,8 @@ import { RealtimeProvider } from "@/contexts/realtime-context";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "next-themes";
 
+const serverUrl = process.env.NEXT_PUBLIC_TICOS_API_URL;
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -31,7 +33,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <RealtimeProvider>
+          <RealtimeProvider serverUrl={serverUrl}>
             {children}
             <Toaster position="top-center" richColors />
           </RealtimeProvider>

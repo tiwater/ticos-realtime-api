@@ -6,7 +6,7 @@ import { ToolDefinition, RealtimeConfig } from './client';
  */
 export interface Event {
   type: string;
-  [key: string]: any; // Allow additional properties for compatibility
+  [key: string]: unknown; // Allow additional properties for compatibility
 }
 
 /**
@@ -35,7 +35,7 @@ export interface SessionUpdateEvent extends Event {
  */
 export interface ConversationStartEvent extends Event {
   conversation_id: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -75,7 +75,7 @@ export interface ToolRegisterEvent extends Event {
  */
 export interface ToolCallEvent extends Event {
   tool_name: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   call_id: string;
 }
 
@@ -84,12 +84,12 @@ export interface ToolCallEvent extends Event {
  */
 export interface ToolResponseEvent extends Event {
   call_id: string;
-  result?: Record<string, any>;
+  result?: Record<string, unknown>;
   error?: {
     code: string;
     message: string;
   };
-} 
+}
 
 /**
  * Realtime event with metadata

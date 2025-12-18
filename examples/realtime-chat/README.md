@@ -32,14 +32,19 @@ pnpm install
 pnpm build
 
 # Navigate to the demo project
-cd examples/realtime-chat-demo
+cd examples/realtime-chat
 
 # Install demo dependencies
 pnpm install
 
-# Create a .env.local file with your API key
-echo "NEXT_PUBLIC_TICOS_API_KEY=your_api_key_here" > .env.local
-echo "NEXT_PUBLIC_TICOS_API_URL=wss://stardust.ticos.cn/realtime" >> .env.local
+# Create a .env.local file
+echo "NEXT_PUBLIC_TICOS_API_URL=wss://stardust.ticos.cn/realtime" > .env.local
+
+# Option A (recommended for browsers): use the relay (see below) and DO NOT set a public API key
+
+# Option B (not recommended): use an API key in the browser
+# echo "NEXT_PUBLIC_TICOS_API_KEY=your_api_key_here" >> .env.local
+# echo "NEXT_PUBLIC_DANGEROUSLY_ALLOW_API_KEY_IN_BROWSER=true" >> .env.local
 
 # Start the development server
 pnpm dev
@@ -53,9 +58,14 @@ If you're already in the demo directory:
 # Install dependencies
 pnpm install
 
-# Create a .env.local file with your API key
-echo "NEXT_PUBLIC_TICOS_API_KEY=your_api_key_here" > .env.local
-echo "NEXT_PUBLIC_TICOS_API_URL=wss://stardust.ticos.cn/realtime" >> .env.local
+# Create a .env.local file
+echo "NEXT_PUBLIC_TICOS_API_URL=wss://stardust.ticos.cn/realtime" > .env.local
+
+# Option A (recommended for browsers): use the relay (see below) and DO NOT set a public API key
+
+# Option B (not recommended): use an API key in the browser
+# echo "NEXT_PUBLIC_TICOS_API_KEY=your_api_key_here" >> .env.local
+# echo "NEXT_PUBLIC_DANGEROUSLY_ALLOW_API_KEY_IN_BROWSER=true" >> .env.local
 
 # Start the development server
 pnpm dev
@@ -68,6 +78,24 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - This demo uses the local version of the Ticos Realtime API SDK from the parent directory.
 - Make sure you've built the SDK before running the demo (`pnpm build` in the root directory).
 - You'll need a valid API key from Ticos to use the demo.
+
+## Browser Auth (Relay)
+
+Browsers can’t set custom WebSocket handshake headers like `Authorization`. If your server requires headers during the handshake, use the relay service in this repo:
+
+```bash
+# from the repo root
+cd relay
+PORT=2859 TARGET_URL="https://stardust.ticos.cn/realtime" AUTH_TOKEN="..." npm start
+```
+
+Then point the demo at the relay:
+
+```bash
+cd examples/realtime-chat
+echo "NEXT_PUBLIC_TICOS_API_URL=ws://localhost:2859" > .env.local
+pnpm dev
+```
 
 ## Project Structure
 

@@ -114,5 +114,5 @@ export interface ConversationState {
   id: string;
   items: ItemType[];
   status: 'active' | 'completed' | 'error';
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

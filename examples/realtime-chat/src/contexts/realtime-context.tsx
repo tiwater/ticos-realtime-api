@@ -11,6 +11,23 @@ import {
 } from '@ticos/realtime-api';
 import { WavRecorder, WavStreamPlayer } from '@/lib/wavtools';
 
+type RealtimeEventEnvelope = {
+  time: string;
+  source: 'client' | 'server';
+  event: RealtimeBaseEvent;
+};
+
+function isRealtimeEventEnvelope(value: unknown): value is RealtimeEventEnvelope {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.time === 'string' &&
+    (record.source === 'client' || record.source === 'server') &&
+    typeof record.event === 'object' &&
+    record.event !== null
+  );
+}
+
 // Simplified event interface for the event log
 interface Event {
   id: string;
@@ -22,7 +39,7 @@ interface Event {
 }
 
 interface RealtimeContextType {
-  client: any;
+  client: RealtimeClient | null;
   isConnected: boolean;
   isLoading: boolean;
   error: Error | null;
@@ -60,7 +77,7 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
   const [messages, setMessages] = useState<ItemType[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [vadEnabled, setVadEnabled] = useState(false);
-  const clientRef = useRef<any>(null);
+  const clientRef = useRef<RealtimeClient | null>(null);
 
   // Audio refs using wavtools
   const recorderRef = useRef<WavRecorder | null>(null);
@@ -143,15 +160,8 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
     clientRef.current.clearEventHandlers();
 
     // Set up event handlers
-    clientRef.current.on('realtime.event', (eventData: any) => {
-      // Type guard to ensure we have a valid TimestampedEvent
-      if (
-        eventData &&
-        typeof eventData === 'object' &&
-        'time' in eventData &&
-        'source' in eventData &&
-        'event' in eventData
-      ) {
+    clientRef.current.on('realtime.event', (eventData: unknown) => {
+      if (isRealtimeEventEnvelope(eventData)) {
         // Create a properly formatted event for the event log
         const newEvent: Event = {
           id: eventData.event?.event_id || RealtimeUtils.generateId('mock_evt_'),
@@ -212,7 +222,9 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
       // Stop any audio playback
       if (playerRef.current) {
         try {
-          playerRef.current.interrupt && playerRef.current.interrupt();
+          if (playerRef.current.interrupt) {
+            playerRef.current.interrupt();
+          }
         } catch (error) {
           console.error('Error stopping audio playback on disconnect:', error);
         }
@@ -222,17 +234,20 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
       audioBufferRef.current = new Int16Array(0);
     });
 
-    clientRef.current.on('client.error', (error: any) => {
+    clientRef.current.on('client.error', () => {
       setError(new Error('Error connecting to Realtime API'));
     });
 
     // Handle conversation updated event for audio processing
-    clientRef.current.on('conversation.updated', async (event: any) => {
-      const items = clientRef.current.getConversationItems();
-      const { item, delta } = event;
+    clientRef.current.on('conversation.updated', async (eventData: unknown) => {
+      const items = clientRef.current?.getConversationItems() ?? [];
+      const { item, delta } = eventData as {
+        item?: ItemType;
+        delta?: { audio?: Int16Array | ArrayBuffer; transcript?: string } | null;
+      };
 
       // Handle audio delta
-      if (delta?.audio && playerRef.current) {
+      if (item && delta?.audio && playerRef.current && delta.audio instanceof Int16Array) {
         playerRef.current.add16BitPCM(delta.audio, item.id);
       }
 
@@ -242,7 +257,7 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
       }
 
       if (item?.status === 'completed' && item.formatted?.audio?.length) {
-        let audioData = new Int16Array(item.formatted.audio);
+        const audioData = new Int16Array(item.formatted.audio);
 
         // Create WAV header
         const wavHeader = new ArrayBuffer(44);
@@ -306,10 +321,31 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
         throw new Error('Failed to initialize audio components');
       }
 
+      const apiKey =
+        process.env.NEXT_PUBLIC_TICOS_API_KEY ||
+        process.env.NEXT_PUBLIC_REALTIME_API_KEY ||
+        '';
+      const dangerouslyAllowAPIKeyInBrowser =
+        (process.env.NEXT_PUBLIC_DANGEROUSLY_ALLOW_API_KEY_IN_BROWSER || '').toLowerCase() ===
+        'true';
+
+      if (apiKey && !dangerouslyAllowAPIKeyInBrowser) {
+        throw new Error(
+          'API key is set for a browser build. Set NEXT_PUBLIC_DANGEROUSLY_ALLOW_API_KEY_IN_BROWSER=true, or use the relay and remove the public API key.'
+        );
+      }
+
+      if (!apiKey && serverUrl.includes('stardust.ticos.cn')) {
+        throw new Error(
+          'Missing API key. Set NEXT_PUBLIC_TICOS_API_KEY (not recommended in browsers) or use the relay and point NEXT_PUBLIC_TICOS_API_URL to it.'
+        );
+      }
+
       // Create a fresh client instance each time
       clientRef.current = new RealtimeClient({
         url: serverUrl,
-        apiKey: process.env.NEXT_PUBLIC_REALTIME_API_KEY || '',
+        apiKey,
+        dangerouslyAllowAPIKeyInBrowser,
         debug: true,
       });
 

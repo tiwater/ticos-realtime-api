@@ -99,8 +99,10 @@ export class RealtimeAPI extends RealtimeEventHandler {
     const hasAuthInUrl = url.searchParams.has('api_key');
     const hasAuthInProtocols = this.protocols.some((p) => p.startsWith('api-key.'));
     const hasAuthInHeaders = Object.keys(this.headers).length > 0;
-    if (!this.apiKey && !hasAuthInUrl && !hasAuthInProtocols && !hasAuthInHeaders) {
-      throw new Error('Missing API key (set apiKey, api_key query param, or headers in Node.js).');
+    if (!this.apiKey && !hasAuthInUrl && !hasAuthInProtocols && !hasAuthInHeaders && this.debug) {
+      console.warn(
+        'No auth provided (apiKey/api_key query/protocols/headers). Connection may be rejected by the server.'
+      );
     }
 
     const defaultProtocols = [

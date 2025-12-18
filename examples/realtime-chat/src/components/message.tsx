@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';

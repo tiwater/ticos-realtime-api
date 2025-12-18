@@ -21,7 +21,7 @@ export class RealtimeClient extends RealtimeEventHandler {
   public conversation: RealtimeConversation;
   protected tools: Record<
     string,
-    { definition: ToolDefinition; handler: (...args: unknown[]) => unknown | Promise<unknown> }
+    { definition: ToolDefinition; handler: (...args: unknown[]) => unknown }
   > = {};
   protected inputAudioBuffer: Int16Array = new Int16Array(0);
   protected sessionCreated: boolean = false;
@@ -260,7 +260,7 @@ export class RealtimeClient extends RealtimeEventHandler {
       call_id: string;
     }): Promise<void> => {
       try {
-        const jsonArguments = JSON.parse(tool.arguments);
+        const jsonArguments: unknown = JSON.parse(tool.arguments);
         const toolConfig = this.tools[tool.name];
         if (!toolConfig) {
           throw new Error(`Tool "${tool.name}" has not been defined`);
@@ -446,7 +446,7 @@ export class RealtimeClient extends RealtimeEventHandler {
    */
   public registerTool(
     definition: ToolDefinition,
-    handler: (...args: unknown[]) => unknown | Promise<unknown>
+    handler: (...args: unknown[]) => unknown
   ): void {
     if (!definition.name) {
       throw new Error('Tool definition must have a name');

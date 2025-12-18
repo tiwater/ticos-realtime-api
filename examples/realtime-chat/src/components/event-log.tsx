@@ -12,15 +12,13 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 
 // Helper function to format JSON with special handling for base64 strings
-const formatJsonWithBase64 = (obj: any) => {
+const formatJsonWithBase64 = (obj: unknown) => {
   // Custom replacer function to handle base64 strings
-  const replacer = (key: string, value: any) => {
+  const replacer = (_key: string, value: unknown) => {
     // Check if value is a string that looks like base64 (long string without spaces)
     if (typeof value === 'string' && value.length > 200 && /^[A-Za-z0-9+/=]+$/.test(value)) {
       // Return truncated version for very long strings

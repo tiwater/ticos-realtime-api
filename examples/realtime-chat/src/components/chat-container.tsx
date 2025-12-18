@@ -5,20 +5,12 @@ import { useRealtime } from '@/contexts/realtime-context';
 import Message from './message';
 import ChatInput from './chat-input';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, AlertCircle, AudioLines, Mic, Loader2 } from 'lucide-react';
+import { AlertCircle, AudioLines, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-
-interface MessageItem {
-  id: string;
-  content: string;
-  isUser: boolean;
-  timestamp: Date;
-  audioData?: any;
-}
 
 const ChatContainer: React.FC = () => {
   const {

@@ -102,7 +102,7 @@ interface ConversationState {
     id: string;
     items: ItemType[];
     status: 'active' | 'completed' | 'error';
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 
 /**
@@ -121,21 +121,22 @@ interface ClientOptions {
     /** WebSocket sub-protocols */
     protocols?: string[];
 }
-/**
- * Tool parameter definition
- */
-interface ToolParameter {
-    /** Parameter type */
-    type: string;
-    /** Parameter description */
-    description: string;
-}
+type JsonSchema = {
+    type?: string;
+    description?: string;
+    properties?: Record<string, JsonSchema>;
+    required?: string[];
+    items?: JsonSchema;
+    enum?: unknown[];
+    additionalProperties?: boolean | JsonSchema;
+    [key: string]: unknown;
+};
 /**
  * Tool definition for registering tools with the client
  */
 interface ToolDefinition {
     /** Tool type, always "function" */
-    type: "function";
+    type: 'function';
     /** Optional unique identifier */
     id?: string;
     /** Name of the tool */
@@ -143,25 +144,21 @@ interface ToolDefinition {
     /** Description of what the tool does */
     description: string;
     /** Parameters schema */
-    parameters?: {
-        type?: "object";
-        properties?: Record<string, ToolParameter | any>;
-        required?: string[];
-    } | any;
+    parameters?: JsonSchema;
     /** Required parameter names */
     required?: string[];
     /** Tool operation mode */
-    operation_mode?: "client_mode" | "server_mode";
+    operation_mode?: 'client_mode' | 'server_mode';
     /** Tool execution type */
-    execution_type?: "synchronous" | "asynchronous";
+    execution_type?: 'synchronous' | 'asynchronous';
     /** How to handle the tool's result */
-    result_handling?: "process_in_llm" | "process_in_client" | "ignore_result";
+    result_handling?: 'process_in_llm' | 'process_in_client' | 'ignore_result';
     /** Tool implementation code */
     code?: string;
     /** Programming language of the code */
-    language?: "python" | "shell";
+    language?: 'python' | 'shell';
     /** Operating system platform */
-    platform?: "linux" | "macos" | "windows";
+    platform?: 'linux' | 'macos' | 'windows';
 }
 /**
  * Configuration with methods for dynamic session management
@@ -186,7 +183,7 @@ interface ConfigWithMethods {
  */
 interface ToolRegistration {
     definition: ToolDefinition;
-    handler: Function;
+    handler: (...args: unknown[]) => unknown;
 }
 /**
  * Model configuration settings
@@ -217,7 +214,7 @@ interface ModelConfig {
     /** API key for the model */
     api_key?: string;
     /** Include initial prompt configuration */
-    include_initial_prompt?: 'first' | 'last' | string | undefined;
+    include_initial_prompt?: 'first' | 'last';
     /** Initial user prompt content */
     initial_user_prompt?: string;
     /** Initial assistant prompt content */
@@ -266,7 +263,7 @@ interface HearingConfig {
     /** Audio provider */
     provider?: 'aliyun' | 'bytedance' | 'baidu' | 'qcloud' | 'jdcloud' | 'bytedance_streaming' | 'aliyun_streaming';
     /** Silence detector configuration */
-    silence_detector?: any;
+    silence_detector?: Record<string, unknown>;
     /** Settings for conversation turn detection */
     turn_detection: {
         type: 'server_vad';
@@ -307,12 +304,49 @@ interface KnowledgeConfig {
         description: string;
         priority: number;
         tags: string[];
-        dialogues: any[];
+        dialogues: Dialogue[];
     }>;
     /** Memory configuration */
     memories?: {
         enable: boolean;
     };
+}
+/**
+ * Dialogue structure for scripted responses
+ */
+interface Dialogue {
+    /** Unique identifier */
+    id: string;
+    /** Input prompts that trigger this dialogue */
+    prompts: string[];
+    /** Possible responses */
+    responses: DialogueResponse[];
+}
+/**
+ * Response types in dialogues
+ */
+type DialogueResponse = MessageResponse | FunctionResponse;
+/**
+ * Message response in dialogues
+ */
+interface MessageResponse {
+    /** Unique identifier */
+    id: string;
+    /** Response type */
+    type: 'message';
+    /** Message content */
+    message: string;
+}
+/**
+ * Function response in dialogues
+ */
+interface FunctionResponse {
+    /** Unique identifier */
+    id: string;
+    /** Response type */
+    type: 'function';
+    /** Function to execute */
+    function: string;
 }
 /**
  * Complete configuration
@@ -337,7 +371,7 @@ interface RealtimeConfig {
  */
 interface Event {
     type: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 /**
  * WebSocket event source
@@ -362,7 +396,7 @@ interface SessionUpdateEvent extends Event {
  */
 interface ConversationStartEvent extends Event {
     conversation_id: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 /**
  * Conversation end event payload
@@ -397,7 +431,7 @@ interface ToolRegisterEvent extends Event {
  */
 interface ToolCallEvent extends Event {
     tool_name: string;
-    parameters: Record<string, any>;
+    parameters: Record<string, unknown>;
     call_id: string;
 }
 /**
@@ -405,7 +439,7 @@ interface ToolCallEvent extends Event {
  */
 interface ToolResponseEvent extends Event {
     call_id: string;
-    result?: Record<string, any>;
+    result?: Record<string, unknown>;
     error?: {
         code: string;
         message: string;
@@ -645,6 +679,10 @@ declare class RealtimeAPI extends RealtimeEventHandler {
     sendToolError(toolCallId: string, error: string): boolean;
 }
 
+type ItemDeltaResult = {
+    item: ItemType | null;
+    delta: ItemContentDelta | null;
+};
 /**
  * Interface for content deltas in conversation items
  */
@@ -668,10 +706,6 @@ declare class RealtimeConversation {
     private itemLookup;
     /** Array of conversation items */
     private items;
-    /** Lookup for responses by ID */
-    private responseLookup;
-    /** Array of responses */
-    private responses;
     /** Queued speech items by ID */
     private queuedSpeechItems;
     /** Queued transcript items by ID */
@@ -697,14 +731,11 @@ declare class RealtimeConversation {
     queueInputAudio(audio: Int16Array): Int16Array;
     /**
      * Process an event from the WebSocket server and compose items
-     * @param {any} event - The event to process
-     * @param {...any} args - Additional arguments
+     * @param {unknown} event - The event to process
+     * @param {...unknown} args - Additional arguments
      * @returns {{ item: ItemType | null, delta: ItemContentDelta | null }} Processed item and delta
      */
-    processEvent(event: any, ...args: any[]): {
-        item: ItemType | null;
-        delta: ItemContentDelta | null;
-    };
+    processEvent(event: unknown, ...args: unknown[]): ItemDeltaResult;
     /**
      * Retrieves a item by id
      * @param {string} id - Item ID
@@ -734,7 +765,7 @@ declare class RealtimeClient extends RealtimeEventHandler {
     conversation: RealtimeConversation;
     protected tools: Record<string, {
         definition: ToolDefinition;
-        handler: (...args: unknown[]) => unknown | Promise<unknown>;
+        handler: (...args: unknown[]) => unknown;
     }>;
     protected inputAudioBuffer: Int16Array;
     protected sessionCreated: boolean;
@@ -816,7 +847,7 @@ declare class RealtimeClient extends RealtimeEventHandler {
      * }, (args) => eval(args.expression));
      * ```
      */
-    registerTool(definition: ToolDefinition, handler: (...args: unknown[]) => unknown | Promise<unknown>): void;
+    registerTool(definition: ToolDefinition, handler: (...args: unknown[]) => unknown): void;
     /**
      * Removes a registered tool.
      *
