@@ -14,6 +14,10 @@ Small deployable WebSocket relay for browser scenarios where you can’t set Web
 ## Run locally
 
 ```bash
+# Option A: from repo root (recommended)
+PORT=2859 TARGET_URL="https://stardust.ticos.cn/realtime" AUTH_TOKEN="..." pnpm relay
+
+# Option B: from relay/
 cd relay
 PORT=2859 TARGET_URL="https://stardust.ticos.cn/realtime" AUTH_TOKEN="..." npm start
 ```
@@ -23,3 +27,7 @@ PORT=2859 TARGET_URL="https://stardust.ticos.cn/realtime" AUTH_TOKEN="..." npm s
 - Set the Railway “Root Directory” to `relay/`
 - Configure env vars (`TARGET_URL`, `AUTH_TOKEN`/`AUTHORIZATION`, and optionally `PORT`)
 - Start command: `npm start`
+
+If you prefer deploying from the repo root (no Root Directory setting), set the Railway start command to `pnpm relay`.
+
+If you want to avoid pnpm entirely, you can also set the start command to `node relay/server.js`.

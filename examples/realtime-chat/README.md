@@ -85,8 +85,7 @@ Browsers can’t set custom WebSocket handshake headers like `Authorization`. If
 
 ```bash
 # from the repo root
-cd relay
-PORT=2859 TARGET_URL="https://stardust.ticos.cn/realtime" AUTH_TOKEN="..." npm start
+PORT=2859 TARGET_URL="https://stardust.ticos.cn/realtime" AUTH_TOKEN="..." pnpm relay
 ```
 
 Then point the demo at the relay:

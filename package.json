@@ -13,6 +13,7 @@
     "build": "tsc --noEmit && tsup",
     "dev": "tsup --watch",
     "clean": "rimraf dist",
+    "relay": "node relay/server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\"",
     "format": "prettier --write \"src/**/*.ts\"",

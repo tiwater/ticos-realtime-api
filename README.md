@@ -88,6 +88,8 @@ console.log('Completed response:', item);
 
 If your deployment requires sending `Authorization` during the WebSocket handshake, browsers can’t set that header directly. This repo includes a small deployable relay service in `relay/` that you can run locally or deploy (e.g. Railway) and point your web app to.
 
+From the repo root, run it with `pnpm relay` (or `node relay/server.js`), and see `relay/README.md` for deploy notes.
+
 ## Documentation
 
 API documentation is automatically generated using TypeDoc. To generate the documentation, run:
