@@ -68,7 +68,7 @@ const SAMPLE_RATE = 24000;
 
 export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
   children,
-  serverUrl = 'wss://stardust.ticos.cn/realtime',
+  serverUrl = 'wss://realtime-relay.ticos.cn',
 }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -256,8 +256,9 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
         // The transcript is already processed by the SDK's event processor
       }
 
-      if (item?.status === 'completed' && item.formatted?.audio?.length) {
-        const audioData = new Int16Array(item.formatted.audio);
+      const formatted = item?.formatted;
+      if (item?.status === 'completed' && formatted?.audio?.length) {
+        const audioData = new Int16Array(formatted.audio);
 
         // Create WAV header
         const wavHeader = new ArrayBuffer(44);
@@ -288,10 +289,10 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
         });
 
         await WavRecorder.decode(wavBlob, SAMPLE_RATE).then((decodedAudio) => {
-          item.formatted.file = {
-            url: decodedAudio.url,
-            blob: decodedAudio.blob,
-          };
+          item.formatted = {
+            ...formatted,
+            file: { url: decodedAudio.url, blob: decodedAudio.blob },
+          } as typeof item.formatted;
         });
       }
       setMessages(items);
@@ -369,7 +370,6 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
         },
         hearing: {
           input_audio_format: 'pcm16',
-          input_audio_transcription: null,
           turn_detection: vadEnabled
             ? {
                 type: 'server_vad',
@@ -607,6 +607,11 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
         await connect();
       }
 
+      const client = clientRef.current;
+      if (!client) {
+        throw new Error('Realtime client not initialized');
+      }
+
       // Create input content
       const inputContent: InputTextContent = {
         type: 'input_text',
@@ -614,7 +619,7 @@ export const RealtimeProvider: React.FC<RealtimeProviderProps> = ({
       };
 
       // Send to server - we'll receive the message back through the realtime events
-      clientRef.current.sendUserMessageContent([inputContent]);
+      client.sendUserMessageContent([inputContent]);
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Unknown error');
       setError(error);

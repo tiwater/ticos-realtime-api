@@ -38,7 +38,7 @@ cd examples/realtime-chat
 pnpm install
 
 # Create a .env.local file
-echo "NEXT_PUBLIC_TICOS_API_URL=wss://stardust.ticos.cn/realtime" > .env.local
+echo "NEXT_PUBLIC_TICOS_API_URL=wss://realtime-relay.ticos.cn" > .env.local
 
 # Option A (recommended for browsers): use the relay (see below) and DO NOT set a public API key
 
@@ -59,7 +59,7 @@ If you're already in the demo directory:
 pnpm install
 
 # Create a .env.local file
-echo "NEXT_PUBLIC_TICOS_API_URL=wss://stardust.ticos.cn/realtime" > .env.local
+echo "NEXT_PUBLIC_TICOS_API_URL=wss://realtime-relay.ticos.cn" > .env.local
 
 # Option A (recommended for browsers): use the relay (see below) and DO NOT set a public API key
 
@@ -77,14 +77,17 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 - This demo uses the local version of the Ticos Realtime API SDK from the parent directory.
 - Make sure you've built the SDK before running the demo (`pnpm build` in the root directory).
-- You'll need a valid API key from Ticos to use the demo.
+- If you connect directly to `wss://stardust.ticos.cn/realtime`, you'll need a valid API key from Ticos. If you use the hosted relay (`wss://realtime-relay.ticos.cn`), you should NOT set a browser API key.
 
 ## Browser Auth (Relay)
 
 Browsers can’t set custom WebSocket handshake headers like `Authorization`. If your server requires headers during the handshake, use the relay service in this repo:
 
 ```bash
-# from the repo root
+# Option A: use the hosted relay
+#   NEXT_PUBLIC_TICOS_API_URL=wss://realtime-relay.ticos.cn
+#
+# Option B: run the relay locally (from the repo root)
 PORT=2859 TARGET_URL="https://stardust.ticos.cn/realtime" AUTH_TOKEN="..." pnpm relay
 ```
 
@@ -92,7 +95,7 @@ Then point the demo at the relay:
 
 ```bash
 cd examples/realtime-chat
-echo "NEXT_PUBLIC_TICOS_API_URL=ws://localhost:2859" > .env.local
+echo "NEXT_PUBLIC_TICOS_API_URL=wss://realtime-relay.ticos.cn" > .env.local
 pnpm dev
 ```
 

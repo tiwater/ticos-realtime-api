@@ -31,3 +31,12 @@ PORT=2859 TARGET_URL="https://stardust.ticos.cn/realtime" AUTH_TOKEN="..." npm s
 If you prefer deploying from the repo root (no Root Directory setting), set the Railway start command to `pnpm relay`.
 
 If you want to avoid pnpm entirely, you can also set the start command to `node relay/server.js`.
+
+## Deploy to Aliyun (阿里云效)
+
+This repo includes a simple SSH-based deploy script for Aliyun DevOps pipelines:
+
+```bash
+DEPLOY_HOST="your-server-ip" DEPLOY_USER="root" TARGET_URL="https://stardust.ticos.cn/realtime" AUTH_TOKEN="..." \
+  bash ci/aliyun_remote_deploy_relay.sh
+```
