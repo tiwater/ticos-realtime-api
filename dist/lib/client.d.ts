@@ -581,11 +581,12 @@ export type StardustKnowledgeType = {
 };
 
 export type StardustConfigType = {
-    model: StardustModelType;
-    speech?: StardustSpeechType;
-    hearing?: StardustHearingType;
-    vision?: StardustVisionType;
-    knowledge?: StardustKnowledgeType;
+    agent_id?: string | null;
+    model?: StardustModelType | null;
+    speech?: StardustSpeechType | null;
+    hearing?: StardustHearingType | null;
+    vision?: StardustVisionType | null;
+    knowledge?: StardustKnowledgeType | null;
 };
 
 export type OpenaiConfigType = {
